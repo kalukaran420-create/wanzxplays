@@ -10,6 +10,9 @@ import channelRoutes from './routes/channels';
 import messageRoutes from './routes/messages';
 import dmRoutes from './routes/dms';
 import roleRoutes from './routes/roles';
+import emojiRoutes from './routes/emojis';
+import giftRoutes from './routes/gifts';
+import soundRoutes from './routes/sounds';
 import { setupSocketHandlers } from './socket/socketHandler';
 
 dotenv.config();
@@ -34,7 +37,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static uploaded files (avatars, attachments)
+// Serve static uploaded files (avatars, attachments, custom emojis, soundboard sounds)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Health check endpoint (Public)
@@ -49,6 +52,9 @@ app.use('/api/channels', channelRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/dms', dmRoutes);
 app.use('/api/roles', roleRoutes);
+app.use('/api/emojis', emojiRoutes);
+app.use('/api/gifts', giftRoutes);
+app.use('/api/sounds', soundRoutes);
 
 server.listen(PORT, () => {
   console.log(`🚀 PulseCord server running on http://localhost:${PORT}`);

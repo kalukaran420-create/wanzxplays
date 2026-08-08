@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ServerProvider } from './context/ServerContext';
@@ -18,6 +18,8 @@ import { CreateChannelModal } from './components/modals/CreateChannelModal';
 import { CreateCategoryModal } from './components/modals/CreateCategoryModal';
 import { InviteModal } from './components/modals/InviteModal';
 import { UserSettingsModal } from './components/modals/UserSettingsModal';
+import { QuickSwitcherModal } from './components/modals/QuickSwitcherModal';
+import { ServerSettingsModal } from './components/modals/ServerSettingsModal';
 import { DMConversation } from './types';
 
 const MainLayout: React.FC = () => {
@@ -33,6 +35,21 @@ const MainLayout: React.FC = () => {
   const [isCreateCategoryOpen, setIsCreateCategoryOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isUserSettingsOpen, setIsUserSettingsOpen] = useState(false);
+  const [isServerSettingsOpen, setIsServerSettingsOpen] = useState(false);
+  const [isQuickSwitcherOpen, setIsQuickSwitcherOpen] = useState(false);
+
+  // Global keyboard shortcut listener for Ctrl+K / Cmd+K
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsQuickSwitcherOpen((prev) => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-discord-tertiary select-none">
@@ -54,7 +71,7 @@ const MainLayout: React.FC = () => {
               setIsCreateChannelOpen(true);
             }}
             onOpenCreateCategory={() => setIsCreateCategoryOpen(true)}
-            onOpenServerSettings={() => setIsUserSettingsOpen(true)}
+            onOpenServerSettings={() => setIsServerSettingsOpen(true)}
             onOpenInviteModal={() => setIsInviteModalOpen(true)}
             onOpenUserSettings={() => setIsUserSettingsOpen(true)}
           />
@@ -63,6 +80,7 @@ const MainLayout: React.FC = () => {
           <ChatArea
             showMembers={showMembers}
             onToggleMembers={() => setShowMembers(!showMembers)}
+            onOpenQuickSwitcher={() => setIsQuickSwitcherOpen(true)}
           />
 
           {/* Right Member Sidebar */}
@@ -93,6 +111,8 @@ const MainLayout: React.FC = () => {
       <CreateCategoryModal isOpen={isCreateCategoryOpen} onClose={() => setIsCreateCategoryOpen(false)} />
       <InviteModal isOpen={isInviteModalOpen} onClose={() => setIsInviteModalOpen(false)} />
       <UserSettingsModal isOpen={isUserSettingsOpen} onClose={() => setIsUserSettingsOpen(false)} />
+      <ServerSettingsModal isOpen={isServerSettingsOpen} onClose={() => setIsServerSettingsOpen(false)} />
+      <QuickSwitcherModal isOpen={isQuickSwitcherOpen} onClose={() => setIsQuickSwitcherOpen(false)} />
     </div>
   );
 };

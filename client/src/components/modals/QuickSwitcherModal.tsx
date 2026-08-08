@@ -12,14 +12,17 @@ export const QuickSwitcherModal: React.FC<QuickSwitcherModalProps> = ({ isOpen, 
   const { activeServer, selectChannel } = useServer();
   const [query, setQuery] = useState('');
 
-  // Key combination listener (Ctrl+K or Cmd+K)
+  // Listen for ESC key to close modal when open
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      if (e.key === 'Escape') {
         e.preventDefault();
-        if (isOpen) onClose();
+        onClose();
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);

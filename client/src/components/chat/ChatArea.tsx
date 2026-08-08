@@ -3,19 +3,21 @@ import { useServer } from '../../context/ServerContext';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
 import { MessageItem } from './MessageItem';
+import { VoiceChannelView } from './VoiceChannelView';
 import { Message, User } from '../../types';
 import { api } from '../../services/api';
 import { UserProfileModal } from '../modals/UserProfileModal';
 import { ImageLightboxModal } from '../modals/ImageLightboxModal';
 import { QuickSwitcherModal } from '../modals/QuickSwitcherModal';
-import { Hash, Volume2, Users, Paperclip, Send, Search, X } from 'lucide-react';
+import { Hash, Volume2, Users, Paperclip, Send, Search, X, Sparkles } from 'lucide-react';
 
 interface ChatAreaProps {
   onToggleMembers: () => void;
   showMembers: boolean;
+  onOpenQuickSwitcher?: () => void;
 }
 
-export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers }) => {
+export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers, onOpenQuickSwitcher }) => {
   const { activeServer, activeChannel } = useServer();
   const { socket } = useSocket();
   const { user } = useAuth();
@@ -36,20 +38,19 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auto scroll to bottom
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Fetch channel message history & setup socket room
+  // Fetch channel message history & setup socket room for TEXT channels
   useEffect(() => {
-    if (!activeChannel) return;
+    if (!activeChannel || activeChannel.type === 'VOICE') return;
 
     const fetchMessages = async () => {
       setLoading(true);
       try {
         const res = await api.get(`/messages/channel/${activeChannel.id}`);
-        setMessages(res.data.messages);
+        setMessages(res.data.messages || []);
       } catch (err) {
         console.error('Failed to fetch channel messages:', err);
       } finally {
@@ -60,11 +61,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
     fetchMessages();
 
     if (socket) {
+      // Emit room join event aliases for 100% compatibility
+      socket.emit('join:channel', activeChannel.id);
       socket.emit('channel:join', activeChannel.id);
 
       const handleNewMessage = (newMessage: Message) => {
         if (newMessage.channelId === activeChannel.id) {
-          setMessages((prev) => [...prev, newMessage]);
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === newMessage.id)) return prev;
+            return [...prev, newMessage];
+          });
           scrollToBottom();
         }
       };
@@ -98,6 +104,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
       socket.on('typing:stop', handleTypingStop);
 
       return () => {
+        socket.emit('leave:channel', activeChannel.id);
         socket.emit('channel:leave', activeChannel.id);
         socket.off('message:new', handleNewMessage);
         socket.off('message:update', handleUpdateMessage);
@@ -112,7 +119,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
     scrollToBottom();
   }, [messages]);
 
-  // Handle typing indicator emission
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputText(e.target.value);
 
@@ -120,14 +126,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
       socket.emit('typing:start', { channelId: activeChannel.id });
 
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-
       typingTimeoutRef.current = setTimeout(() => {
         socket.emit('typing:stop', { channelId: activeChannel.id });
-      }, 2500);
+      }, 2000);
     }
   };
 
-  // Attachment select
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -135,11 +139,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
     setAttachment(file);
     if (file.type.startsWith('image/')) {
       const reader = new FileReader();
-      reader.onloadend = () => setAttachmentPreview(reader.result as string);
+      reader.onload = () => setAttachmentPreview(reader.result as string);
       reader.readAsDataURL(file);
     } else {
       setAttachmentPreview(null);
     }
+  };
+
+  const clearAttachment = () => {
+    setAttachment(null);
+    setAttachmentPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -153,17 +163,19 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
     if (attachment) formData.append('attachment', attachment);
 
     setInputText('');
-    setAttachment(null);
-    setAttachmentPreview(null);
-
-    if (socket && activeChannel) {
-      socket.emit('typing:stop', { channelId: activeChannel.id });
-    }
+    clearAttachment();
 
     try {
-      await api.post('/messages/send', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      // Allow Axios to automatically format multipart boundary headers
+      const res = await api.post('/messages', formData);
+
+      if (res.data.message) {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === res.data.message.id)) return prev;
+          return [...prev, res.data.message];
+        });
+        scrollToBottom();
+      }
     } catch (err) {
       console.error('Failed to send message:', err);
     }
@@ -195,163 +207,169 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
 
   if (!activeChannel) {
     return (
-      <div className="flex-1 bg-discord-primary flex items-center justify-center text-discord-muted">
-        Select a channel to start messaging
+      <div className="flex-1 bg-cyber-chat flex flex-col items-center justify-center text-cyber-muted p-8 select-none">
+        <div className="w-16 h-16 rounded-3xl bg-cyber-input flex items-center justify-center mb-4 border border-cyber-border">
+          <Hash className="w-8 h-8 text-cyber-violet" />
+        </div>
+        <h3 className="text-lg font-extrabold text-white mb-1">Select a channel to start messaging</h3>
+        <p className="text-xs text-cyber-muted">Choose a text or voice channel from the left sidebar.</p>
       </div>
     );
   }
 
+  if (activeChannel.type === 'VOICE') {
+    return <VoiceChannelView channel={activeChannel} />;
+  }
+
   return (
-    <div className="flex-1 bg-discord-primary flex flex-col h-full overflow-hidden relative">
-      {/* Header Bar */}
-      <div className="h-12 border-b border-black/20 px-4 flex items-center justify-between shadow-sm bg-discord-primary z-10">
-        <div className="flex items-center space-x-2 min-w-0">
-          {activeChannel.type === 'VOICE' ? (
-            <Volume2 className="w-5 h-5 text-discord-muted flex-shrink-0" />
-          ) : (
-            <Hash className="w-5 h-5 text-discord-muted flex-shrink-0" />
-          )}
-          <span className="font-bold text-white text-base truncate">{activeChannel.name}</span>
+    <div className="flex-1 bg-cyber-chat flex flex-col h-full overflow-hidden relative">
+      {/* Channel Header Bar */}
+      <div className="h-14 border-b border-cyber-border px-6 flex items-center justify-between shadow-sm bg-cyber-chat/80 backdrop-blur-md z-10 select-none">
+        <div className="flex items-center space-x-2.5 min-w-0">
+          <Hash className="w-5 h-5 text-cyber-muted flex-shrink-0" />
+          <span className="font-extrabold text-white text-base truncate">{activeChannel.name}</span>
           {activeChannel.topic && (
-            <>
-              <div className="w-px h-4 bg-white/10 mx-2" />
-              <span className="text-xs text-discord-muted truncate font-normal">{activeChannel.topic}</span>
-            </>
+            <span className="text-xs text-cyber-muted border-l border-cyber-border pl-3 truncate max-w-md hidden md:inline">
+              {activeChannel.topic}
+            </span>
           )}
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 flex-shrink-0">
           <button
-            onClick={() => setIsQuickSwitcherOpen(true)}
-            className="hidden md:flex items-center space-x-2 bg-discord-tertiary px-3 py-1 rounded-md text-xs text-discord-muted hover:text-discord-text transition-colors border border-white/5"
+            onClick={() => {
+              if (onOpenQuickSwitcher) onOpenQuickSwitcher();
+              else setIsQuickSwitcherOpen(true);
+            }}
+            className="p-2 text-cyber-muted hover:text-white rounded-xl bg-cyber-input border border-cyber-border transition-colors hidden sm:flex items-center space-x-1 text-xs font-bold"
             title="Quick Switcher (Ctrl+K)"
           >
-            <Search className="w-3.5 h-3.5 text-discord-brand" />
-            <span>Search channels...</span>
-            <kbd className="px-1.5 py-0.5 bg-black/40 rounded text-[10px] font-mono text-discord-muted">Ctrl K</kbd>
+            <Search className="w-4 h-4 text-cyber-cyan" />
+            <span className="text-[10px] text-cyber-muted font-mono bg-cyber-base px-1.5 py-0.5 rounded">Ctrl+K</span>
           </button>
 
           <button
             onClick={onToggleMembers}
-            className={`p-1.5 rounded hover:bg-white/10 transition-colors ${
-              showMembers ? 'text-white' : 'text-discord-muted hover:text-white'
+            className={`p-2 rounded-xl border transition-colors ${
+              showMembers
+                ? 'bg-cyber-violet/20 text-cyber-violet border-cyber-violet/40'
+                : 'bg-cyber-input text-cyber-muted hover:text-white border-cyber-border'
             }`}
             title="Toggle Member List"
           >
-            <Users className="w-5 h-5" />
+            <Users className="w-4 h-4" />
           </button>
         </div>
       </div>
 
       {/* Messages Scroll Feed */}
       <div className="flex-1 overflow-y-auto py-4 space-y-1">
-        {/* Welcome Channel Banner */}
-        <div className="px-4 mb-6">
-          <div className="w-16 h-16 rounded-full bg-discord-secondary flex items-center justify-center mb-2 shadow-lg">
-            <Hash className="w-10 h-10 text-white" />
+        {loading && messages.length === 0 ? (
+          <div className="p-8 text-center text-xs text-cyber-muted font-bold flex items-center justify-center space-x-2">
+            <Sparkles className="w-4 h-4 text-cyber-violet animate-spin" />
+            <span>Loading channel history...</span>
           </div>
-          <h1 className="text-2xl font-bold text-white">Welcome to #{activeChannel.name}!</h1>
-          <p className="text-xs text-discord-muted mt-1">
-            This is the start of the #{activeChannel.name} channel in {activeServer?.name}.
-          </p>
-        </div>
-
-        {messages.map((msg) => (
-          <MessageItem
-            key={msg.id}
-            message={msg}
-            onEditMessage={handleEditMessage}
-            onDeleteMessage={handleDeleteMessage}
-            onToggleReaction={handleToggleReaction}
-            onOpenProfile={(author) => setSelectedUserForProfile(author)}
-            onOpenImage={(url) => setSelectedImageForLightbox(url)}
-          />
-        ))}
+        ) : messages.length === 0 ? (
+          <div className="p-8 text-center text-cyber-muted my-auto select-none">
+            <div className="w-16 h-16 rounded-3xl bg-cyber-input flex items-center justify-center mx-auto mb-3 border border-cyber-border">
+              <Hash className="w-8 h-8 text-cyber-cyan" />
+            </div>
+            <h3 className="text-base font-extrabold text-white">Welcome to #{activeChannel.name}!</h3>
+            <p className="text-xs text-cyber-muted mt-1">This is the start of the #{activeChannel.name} channel.</p>
+          </div>
+        ) : (
+          messages.map((message) => (
+            <MessageItem
+              key={message.id}
+              message={message}
+              onEditMessage={handleEditMessage}
+              onDeleteMessage={handleDeleteMessage}
+              onToggleReaction={handleToggleReaction}
+              onOpenProfile={(u) => setSelectedUserForProfile(u)}
+              onOpenImage={(url) => setSelectedImageForLightbox(url)}
+            />
+          ))
+        )}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Typing Indicator Bar */}
       {typingUsers.length > 0 && (
-        <div className="px-4 py-1 text-[11px] text-discord-muted font-medium flex items-center space-x-1 animate-pulse">
-          <span className="font-bold text-white">{typingUsers.join(', ')}</span>
-          <span>{typingUsers.length === 1 ? 'is' : 'are'} typing...</span>
+        <div className="px-6 py-1 text-[11px] text-cyber-cyan font-bold italic animate-pulse">
+          {typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
         </div>
       )}
 
-      {/* File Attachment Preview */}
-      {attachment && (
-        <div className="mx-4 mb-2 p-2 bg-discord-secondary rounded-xl border border-white/10 flex items-center justify-between w-max max-w-xs shadow-lg">
-          <div className="flex items-center space-x-2 min-w-0">
-            {attachmentPreview ? (
-              <img src={attachmentPreview} alt="Preview" className="w-10 h-10 rounded-lg object-cover" />
-            ) : (
-              <Paperclip className="w-6 h-6 text-discord-brand" />
-            )}
-            <div className="min-w-0">
-              <div className="text-xs font-semibold text-white truncate">{attachment.name}</div>
-              <div className="text-[10px] text-discord-muted">{(attachment.size / 1024).toFixed(1)} KB</div>
+      {/* Message Input Box & Attachment Bar */}
+      <div className="p-4 pt-1 bg-cyber-chat select-none">
+        {/* File attachment preview badge */}
+        {attachment && (
+          <div className="mb-2 p-2 px-3 bg-cyber-input border border-cyber-border rounded-2xl flex items-center justify-between max-w-sm shadow-md animate-fade-in">
+            <div className="flex items-center space-x-2.5 min-w-0">
+              {attachmentPreview ? (
+                <img src={attachmentPreview} alt="Preview" className="w-9 h-9 rounded-xl object-cover border border-white/10" />
+              ) : (
+                <Paperclip className="w-5 h-5 text-cyber-cyan flex-shrink-0" />
+              )}
+              <div className="min-w-0">
+                <div className="text-xs font-bold text-white truncate">{attachment.name}</div>
+                <div className="text-[10px] text-cyber-muted font-mono">{(attachment.size / 1024).toFixed(1)} KB</div>
+              </div>
             </div>
+            <button onClick={clearAttachment} className="p-1 text-cyber-muted hover:text-white rounded-lg transition-colors">
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            onClick={() => {
-              setAttachment(null);
-              setAttachmentPreview(null);
-            }}
-            className="p-1 text-discord-muted hover:text-discord-red rounded-full"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* Message Input Box */}
-      <form onSubmit={handleSendMessage} className="px-4 pb-6 pt-1">
-        <div className="bg-[#383a40] rounded-xl px-4 py-2.5 flex items-center space-x-3 border border-transparent focus-within:border-discord-brand transition-colors shadow-inner">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="p-1 rounded-full bg-discord-muted/20 hover:bg-discord-brand hover:text-white text-discord-muted transition-colors flex-shrink-0"
-            title="Upload File or Image"
-          >
-            <Paperclip className="w-4 h-4" />
-          </button>
+        <form onSubmit={handleSendMessage} className="relative flex items-center">
           <input
             type="file"
             ref={fileInputRef}
-            onChange={handleFileSelect}
             className="hidden"
+            onChange={handleFileSelect}
           />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="absolute left-3.5 p-2 text-cyber-muted hover:text-cyber-cyan rounded-xl transition-colors z-10"
+            title="Attach file (up to 50MB)"
+          >
+            <Paperclip className="w-5 h-5" />
+          </button>
 
           <input
             type="text"
             value={inputText}
             onChange={handleInputChange}
             placeholder={`Message #${activeChannel.name}`}
-            className="flex-1 bg-transparent text-white placeholder-discord-muted outline-none text-sm font-normal"
+            className="w-full pl-12 pr-14 py-3.5 bg-cyber-input text-white rounded-2xl outline-none border border-cyber-border focus:border-cyber-violet text-sm transition-all shadow-inner"
           />
 
           <button
             type="submit"
             disabled={!inputText.trim() && !attachment}
-            className="p-1.5 bg-discord-brand hover:bg-discord-brand-hover text-white rounded-md transition-colors disabled:opacity-40 flex-shrink-0"
+            className="absolute right-3 p-2 bg-aurora-gradient hover:bg-aurora-hover text-white rounded-xl shadow-glow-violet transition-all disabled:opacity-30 disabled:shadow-none"
+            title="Send Message"
           >
             <Send className="w-4 h-4" />
           </button>
-        </div>
-      </form>
+        </form>
+      </div>
 
       {/* Modals */}
       <UserProfileModal
         user={selectedUserForProfile}
-        isOpen={Boolean(selectedUserForProfile)}
+        isOpen={!!selectedUserForProfile}
         onClose={() => setSelectedUserForProfile(null)}
       />
+
       <ImageLightboxModal
         imageUrl={selectedImageForLightbox}
-        isOpen={Boolean(selectedImageForLightbox)}
+        isOpen={!!selectedImageForLightbox}
         onClose={() => setSelectedImageForLightbox(null)}
       />
+
       <QuickSwitcherModal
         isOpen={isQuickSwitcherOpen}
         onClose={() => setIsQuickSwitcherOpen(false)}

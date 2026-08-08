@@ -8,6 +8,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, username: string, password: string, displayName?: string) => Promise<void>;
+  googleLogin: (credentialOrToken: string, googleProfile?: any) => Promise<void>;
   logout: () => void;
   updateStatus: (status: UserStatus, customStatus?: string) => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
@@ -59,6 +60,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(userObj);
   };
 
+  const googleLogin = async (credentialOrToken: string, googleProfile?: any) => {
+    const response = await api.post('/auth/google', { credential: credentialOrToken, googleProfile });
+    const { token: newToken, user: userObj } = response.data;
+    localStorage.setItem('pulsecord_token', newToken);
+    setToken(newToken);
+    setUser(userObj);
+  };
+
   const logout = () => {
     localStorage.removeItem('pulsecord_token');
     setToken(null);
@@ -92,6 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         login,
         register,
+        googleLogin,
         logout,
         updateStatus,
         updateProfile,

@@ -14,8 +14,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState<boolean>(false);
 
+  const userId = user?.id;
+
   useEffect(() => {
-    if (!token || !user) {
+    if (!token || !userId) {
       if (socket) {
         socket.disconnect();
         setSocket(null);
@@ -24,18 +26,28 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    const socketInstance = io('/', {
+    const serverUrl = window.location.hostname === 'localhost' ? 'http://localhost:5000' : '/';
+
+    const socketInstance = io(serverUrl, {
       auth: { token },
       transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 20,
+      reconnectionDelay: 1000,
     });
 
     socketInstance.on('connect', () => {
-      console.log('[Socket.io] Connected to server');
+      console.log('⚡ [Socket.io] Connected to server:', socketInstance.id);
       setConnected(true);
     });
 
-    socketInstance.on('disconnect', () => {
-      console.log('[Socket.io] Disconnected from server');
+    socketInstance.on('disconnect', (reason) => {
+      console.log('⚡ [Socket.io] Disconnected:', reason);
+      setConnected(false);
+    });
+
+    socketInstance.on('connect_error', (error) => {
+      console.error('⚡ [Socket.io] Connection error:', error.message);
       setConnected(false);
     });
 
@@ -44,7 +56,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => {
       socketInstance.disconnect();
     };
-  }, [token, user]);
+  }, [token, userId]);
 
   return <SocketContext.Provider value={{ socket, connected }}>{children}</SocketContext.Provider>;
 };

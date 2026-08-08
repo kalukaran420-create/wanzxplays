@@ -79,14 +79,21 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
             displayName: true,
             avatar: true,
             status: true,
+            customTag: true,
           },
         },
-        reactions: true,
+        reactions: {
+          include: {
+            user: { select: { id: true, username: true, displayName: true } },
+          },
+        },
       },
     });
 
-    // Broadcast message to Socket room `channel:channelId`
+    // Broadcast message to room and global socket connection
+    console.log(`[Socket] Broadcasting message:new to room channel:${channelId}`);
     io.to(`channel:${channelId}`).emit('message:new', message);
+    io.emit('message:new', message);
 
     return res.status(201).json({ message });
   } catch (error: any) {
@@ -120,13 +127,20 @@ export const editMessage = async (req: AuthRequest, res: Response) => {
             displayName: true,
             avatar: true,
             status: true,
+            customTag: true,
           },
         },
-        reactions: true,
+        reactions: {
+          include: {
+            user: { select: { id: true, username: true, displayName: true } },
+          },
+        },
       },
     });
 
+    console.log(`[Socket] Broadcasting message:update to room channel:${updatedMessage.channelId}`);
     io.to(`channel:${updatedMessage.channelId}`).emit('message:update', updatedMessage);
+    io.emit('message:update', updatedMessage);
 
     return res.json({ message: updatedMessage });
   } catch (error: any) {
@@ -152,7 +166,9 @@ export const deleteMessage = async (req: AuthRequest, res: Response) => {
       where: { id: messageId },
     });
 
+    console.log(`[Socket] Broadcasting message:delete to room channel:${existingMessage.channelId}`);
     io.to(`channel:${existingMessage.channelId}`).emit('message:delete', { messageId, channelId: existingMessage.channelId });
+    io.emit('message:delete', { messageId, channelId: existingMessage.channelId });
 
     return res.json({ message: 'Message deleted' });
   } catch (error: any) {
@@ -199,7 +215,7 @@ export const toggleReaction = async (req: AuthRequest, res: Response) => {
       where: { id: messageId },
       include: {
         author: {
-          select: { id: true, username: true, displayName: true, avatar: true },
+          select: { id: true, username: true, displayName: true, avatar: true, customTag: true },
         },
         reactions: {
           include: {
@@ -210,7 +226,9 @@ export const toggleReaction = async (req: AuthRequest, res: Response) => {
     });
 
     if (updatedMessage) {
+      console.log(`[Socket] Broadcasting message:update (reaction) to room channel:${updatedMessage.channelId}`);
       io.to(`channel:${updatedMessage.channelId}`).emit('message:update', updatedMessage);
+      io.emit('message:update', updatedMessage);
     }
 
     return res.json({ message: updatedMessage });

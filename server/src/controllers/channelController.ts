@@ -11,8 +11,8 @@ export const createCategory = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Server ID and category name are required' });
     }
 
-    const member = await prisma.serverMember.findUnique({
-      where: { serverId_userId: { serverId, userId: userId! } },
+    const member = await prisma.serverMember.findFirst({
+      where: { serverId, userId: userId! },
     });
 
     if (!member) {
@@ -35,7 +35,7 @@ export const createCategory = async (req: AuthRequest, res: Response) => {
     return res.status(201).json({ category });
   } catch (error: any) {
     console.error('CreateCategory Error:', error);
-    return res.status(500).json({ error: 'Failed to create category' });
+    return res.status(500).json({ error: error.message || 'Failed to create category' });
   }
 };
 
@@ -48,16 +48,31 @@ export const createChannel = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Server ID and channel name are required' });
     }
 
-    const member = await prisma.serverMember.findUnique({
-      where: { serverId_userId: { serverId, userId: userId! } },
+    const member = await prisma.serverMember.findFirst({
+      where: { serverId, userId: userId! },
     });
 
     if (!member) {
       return res.status(403).json({ error: 'Not a member of this server' });
     }
 
-    const formattedName = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    const channelCount = await prisma.channel.count({ where: { serverId, categoryId: categoryId || null } });
+    let targetCategoryId = categoryId || null;
+
+    if (!targetCategoryId) {
+      const categoryKeyword = type === 'VOICE' ? 'VOICE' : 'TEXT';
+      const matchedCat = await prisma.category.findFirst({
+        where: {
+          serverId,
+          name: { contains: categoryKeyword },
+        },
+      });
+      if (matchedCat) {
+        targetCategoryId = matchedCat.id;
+      }
+    }
+
+    const formattedName = name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-_]/g, '') || name.trim();
+    const channelCount = await prisma.channel.count({ where: { serverId, categoryId: targetCategoryId } });
 
     const channel = await prisma.channel.create({
       data: {
@@ -65,7 +80,7 @@ export const createChannel = async (req: AuthRequest, res: Response) => {
         type: type || 'TEXT',
         topic: topic || null,
         serverId,
-        categoryId: categoryId || null,
+        categoryId: targetCategoryId,
         position: channelCount,
       },
     });
@@ -73,7 +88,7 @@ export const createChannel = async (req: AuthRequest, res: Response) => {
     return res.status(201).json({ channel });
   } catch (error: any) {
     console.error('CreateChannel Error:', error);
-    return res.status(500).json({ error: 'Failed to create channel' });
+    return res.status(500).json({ error: error.message || 'Failed to create channel' });
   }
 };
 

@@ -14,6 +14,7 @@ const router = Router();
 router.use(authenticateToken);
 
 router.get('/channel/:channelId', getChannelMessages);
+router.post('/', upload.single('attachment'), sendMessage);
 router.post('/send', upload.single('attachment'), sendMessage);
 router.patch('/:messageId', editMessage);
 router.delete('/:messageId', deleteMessage);

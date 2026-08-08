@@ -38,8 +38,8 @@ export const createServer = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    // 2. Create default category & channel
-    const defaultCat = await prisma.category.create({
+    // 2. Create default categories & channels
+    const defaultTextCat = await prisma.category.create({
       data: {
         name: 'TEXT CHANNELS',
         position: 0,
@@ -54,7 +54,26 @@ export const createServer = async (req: AuthRequest, res: Response) => {
         topic: 'Welcome to the general text channel!',
         position: 0,
         serverId: server.id,
-        categoryId: defaultCat.id,
+        categoryId: defaultTextCat.id,
+      },
+    });
+
+    const defaultVoiceCat = await prisma.category.create({
+      data: {
+        name: 'VOICE CHANNELS',
+        position: 1,
+        serverId: server.id,
+      },
+    });
+
+    await prisma.channel.create({
+      data: {
+        name: 'General Voice',
+        type: 'VOICE',
+        topic: 'General voice hangout',
+        position: 0,
+        serverId: server.id,
+        categoryId: defaultVoiceCat.id,
       },
     });
 
@@ -171,7 +190,7 @@ export const getServerDetails = async (req: AuthRequest, res: Response) => {
                 customStatus: true,
               },
             },
-            roles: true,
+            role: true,
           },
         },
       },
@@ -209,17 +228,15 @@ export const joinServerByInvite = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Invalid invite link' });
     }
 
-    const existingMember = await prisma.serverMember.findUnique({
+    const existingMember = await prisma.serverMember.findFirst({
       where: {
-        serverId_userId: {
-          serverId: server.id,
-          userId,
-        },
+        serverId: server.id,
+        userId,
       },
     });
 
     if (existingMember) {
-      return res.status(400).json({ error: 'You are already a member of this server', serverId: server.id });
+      return res.status(400).json({ error: 'You are already a member of this server' });
     }
 
     await prisma.serverMember.create({
@@ -229,7 +246,20 @@ export const joinServerByInvite = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    return res.json({ message: 'Successfully joined server', serverId: server.id });
+    const updatedServer = await prisma.server.findUnique({
+      where: { id: server.id },
+      include: {
+        categories: {
+          include: {
+            channels: { orderBy: { position: 'asc' } },
+          },
+          orderBy: { position: 'asc' },
+        },
+        channels: { orderBy: { position: 'asc' } },
+      },
+    });
+
+    return res.json({ server: updatedServer });
   } catch (error: any) {
     console.error('JoinServer Error:', error);
     return res.status(500).json({ error: 'Failed to join server' });
@@ -246,8 +276,12 @@ export const updateServer = async (req: AuthRequest, res: Response) => {
       where: { id: serverId },
     });
 
-    if (!server || server.ownerId !== userId) {
-      return res.status(403).json({ error: 'Only the server owner can update server settings' });
+    if (!server) {
+      return res.status(404).json({ error: 'Server not found' });
+    }
+
+    if (server.ownerId !== userId) {
+      return res.status(403).json({ error: 'Only the server owner can update this server' });
     }
 
     const updatedServer = await prisma.server.update({
@@ -255,11 +289,11 @@ export const updateServer = async (req: AuthRequest, res: Response) => {
       data: {
         ...(name && { name }),
         ...(description !== undefined && { description }),
-        ...(icon !== undefined && { icon }),
+        ...(icon && { icon }),
       },
     });
 
-    return res.json({ message: 'Server updated successfully', server: updatedServer });
+    return res.json({ server: updatedServer });
   } catch (error: any) {
     console.error('UpdateServer Error:', error);
     return res.status(500).json({ error: 'Failed to update server' });
@@ -275,7 +309,11 @@ export const deleteServer = async (req: AuthRequest, res: Response) => {
       where: { id: serverId },
     });
 
-    if (!server || server.ownerId !== userId) {
+    if (!server) {
+      return res.status(404).json({ error: 'Server not found' });
+    }
+
+    if (server.ownerId !== userId) {
       return res.status(403).json({ error: 'Only the server owner can delete this server' });
     }
 
@@ -287,5 +325,60 @@ export const deleteServer = async (req: AuthRequest, res: Response) => {
   } catch (error: any) {
     console.error('DeleteServer Error:', error);
     return res.status(500).json({ error: 'Failed to delete server' });
+  }
+};
+
+export const removeServerMember = async (req: AuthRequest, res: Response) => {
+  try {
+    const { serverId, memberId } = req.params;
+    const userId = req.user?.userId;
+
+    const server = await prisma.server.findUnique({
+      where: { id: serverId },
+    });
+
+    if (!server) {
+      return res.status(404).json({ error: 'Server not found' });
+    }
+
+    if (server.ownerId !== userId) {
+      return res.status(403).json({ error: 'Only the server owner can remove members' });
+    }
+
+    await prisma.serverMember.delete({
+      where: { id: memberId },
+    });
+
+    return res.json({ message: 'Member removed successfully' });
+  } catch (error: any) {
+    console.error('RemoveServerMember Error:', error);
+    return res.status(500).json({ error: 'Failed to remove member' });
+  }
+};
+
+export const uploadServerIcon = async (req: AuthRequest, res: Response) => {
+  try {
+    const { serverId } = req.params;
+    const userId = req.user?.userId;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No icon image uploaded' });
+    }
+
+    const server = await prisma.server.findUnique({ where: { id: serverId } });
+    if (!server || server.ownerId !== userId) {
+      return res.status(403).json({ error: 'Only the server owner can update the server icon' });
+    }
+
+    const iconUrl = `/uploads/${req.file.filename}`;
+    const updatedServer = await prisma.server.update({
+      where: { id: serverId },
+      data: { icon: iconUrl },
+    });
+
+    return res.json({ message: 'Server icon uploaded successfully', iconUrl, server: updatedServer });
+  } catch (error: any) {
+    console.error('UploadServerIcon Error:', error);
+    return res.status(500).json({ error: 'Server error uploading icon' });
   }
 };

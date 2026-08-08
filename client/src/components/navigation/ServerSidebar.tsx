@@ -1,109 +1,117 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useServer } from '../../context/ServerContext';
-import { Sparkles, Plus, Compass, MessageSquare } from 'lucide-react';
+import { Plus, Compass, Zap } from 'lucide-react';
 
 interface ServerSidebarProps {
   onOpenCreateServer: () => void;
-  onOpenJoinServer: () => void;
-  activeView: 'server' | 'dm';
-  setActiveView: (view: 'server' | 'dm') => void;
+  onOpenJoinServer?: () => void;
+  onOpenExploreServers?: () => void;
+  activeView?: 'server' | 'dm';
+  setActiveView?: (view: 'server' | 'dm') => void;
 }
 
 export const ServerSidebar: React.FC<ServerSidebarProps> = ({
   onOpenCreateServer,
   onOpenJoinServer,
-  activeView,
+  onOpenExploreServers,
+  activeView = 'server',
   setActiveView,
 }) => {
   const { servers, activeServer, selectServer } = useServer();
 
   return (
-    <div className="w-[72px] bg-discord-tertiary flex flex-col items-center py-3 space-y-2 border-r border-black/20 flex-shrink-0 select-none z-20">
-      {/* Direct Messages / Home Button */}
+    <div className="w-[72px] bg-cyber-base flex flex-col items-center py-3 space-y-2 select-none flex-shrink-0 border-r border-cyber-border z-20">
+      {/* App Home Button */}
       <div className="relative group flex items-center justify-center w-full">
         <div
-          className={`absolute left-0 w-1 bg-white rounded-r transition-all duration-200 ${
-            activeView === 'dm' ? 'h-10' : 'h-0 group-hover:h-5'
+          className={`absolute left-0 w-1 bg-gradient-to-b from-cyber-violet to-cyber-cyan rounded-r-full transition-all duration-300 ${
+            activeView === 'dm' ? 'h-8 opacity-100 shadow-glow-violet' : 'h-0 opacity-0 group-hover:h-4 group-hover:opacity-70'
           }`}
         />
+
         <button
-          onClick={() => setActiveView('dm')}
-          className={`w-12 h-12 rounded-3xl group-hover:rounded-2xl flex items-center justify-center transition-all duration-200 ${
-            activeView === 'dm'
-              ? 'bg-discord-brand text-white rounded-2xl shadow-lg shadow-discord-brand/40'
-              : 'bg-discord-primary text-discord-text group-hover:bg-discord-brand group-hover:text-white'
+          onClick={() => setActiveView?.('dm')}
+          className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-glow-violet transition-all duration-300 hover:rounded-xl group-hover:scale-105 ${
+            activeView === 'dm' ? 'bg-aurora-gradient rounded-xl' : 'bg-cyber-panel border border-white/5 text-cyber-text hover:bg-cyber-hover'
           }`}
-          title="Direct Messages"
         >
-          <MessageSquare className="w-6 h-6" />
+          <Zap className="w-6 h-6 fill-white stroke-none" />
         </button>
       </div>
 
-      <div className="w-8 h-[2px] bg-white/10 rounded my-1" />
+      <div className="w-8 h-[2px] bg-cyber-border rounded-full my-1" />
 
       {/* Server List */}
-      <div className="flex-1 w-full space-y-2 overflow-y-auto no-scrollbar flex flex-col items-center">
+      <div className="flex-1 w-full space-y-2.5 overflow-y-auto no-scrollbar flex flex-col items-center px-2">
         {servers.map((server) => {
           const isActive = activeView === 'server' && activeServer?.id === server.id;
-          const initials = server.name
-            .split(' ')
-            .map((n) => n[0])
-            .join('')
-            .substring(0, 3)
-            .toUpperCase();
 
           return (
             <div key={server.id} className="relative group flex items-center justify-center w-full">
-              {/* Active / Hover Indicator Pill */}
+              {/* Active Indicator Bar */}
               <div
-                className={`absolute left-0 w-1 bg-white rounded-r transition-all duration-200 ${
-                  isActive ? 'h-10' : 'h-0 group-hover:h-5'
+                className={`absolute left-0 w-1 bg-gradient-to-b from-cyber-violet to-cyber-cyan rounded-r-full transition-all duration-300 ${
+                  isActive
+                    ? 'h-8 opacity-100 shadow-glow-violet'
+                    : 'h-0 opacity-0 group-hover:h-4 group-hover:opacity-70'
                 }`}
               />
 
               <button
                 onClick={() => {
-                  setActiveView('server');
                   selectServer(server.id);
+                  setActiveView?.('server');
                 }}
-                className={`w-12 h-12 rounded-3xl group-hover:rounded-2xl flex items-center justify-center transition-all duration-200 overflow-hidden ${
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-extrabold text-sm transition-all duration-300 hover:rounded-xl group-hover:scale-105 overflow-hidden ${
                   isActive
-                    ? 'bg-discord-brand text-white rounded-2xl shadow-lg shadow-discord-brand/40'
-                    : 'bg-discord-primary text-discord-text group-hover:bg-discord-brand group-hover:text-white'
+                    ? 'bg-aurora-gradient rounded-xl shadow-glow-violet'
+                    : 'bg-cyber-panel border border-white/5 text-cyber-text hover:bg-cyber-hover'
                 }`}
-                title={server.name}
               >
                 {server.icon ? (
                   <img src={server.icon} alt={server.name} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="font-bold text-sm tracking-wider">{initials}</span>
+                  <span>{server.name.substring(0, 2).toUpperCase()}</span>
                 )}
               </button>
+
+              {/* Tooltip */}
+              <div className="absolute left-[80px] bg-cyber-input border border-cyber-border text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 whitespace-nowrap z-50 animate-fade-in">
+                {server.name}
+              </div>
             </div>
           );
         })}
 
-        {/* Add Server Button */}
+        {/* Create Server Button inside rail */}
         <div className="relative group flex items-center justify-center w-full pt-1">
           <button
             onClick={onOpenCreateServer}
-            className="w-12 h-12 rounded-3xl hover:rounded-2xl bg-discord-primary hover:bg-discord-green text-discord-green hover:text-white flex items-center justify-center transition-all duration-200 group-hover:shadow-lg group-hover:shadow-discord-green/30"
-            title="Add a Server"
+            className="w-12 h-12 rounded-2xl bg-cyber-panel border border-cyber-border flex items-center justify-center text-cyber-emerald hover:bg-cyber-emerald hover:text-white hover:border-cyber-emerald transition-all duration-300 hover:rounded-xl group-hover:scale-105 shadow-glow-emerald"
+            title="Create a Server"
           >
-            <Plus className="w-6 h-6" />
+            <Plus className="w-5 h-5" />
           </button>
+          <div className="absolute left-[80px] bg-cyber-input border border-cyber-border text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 whitespace-nowrap z-50 animate-fade-in">
+            Create Server
+          </div>
         </div>
 
-        {/* Join Public Server Invite Button */}
-        <div className="relative group flex items-center justify-center w-full">
-          <button
-            onClick={onOpenJoinServer}
-            className="w-12 h-12 rounded-3xl hover:rounded-2xl bg-discord-primary hover:bg-discord-brand text-discord-text hover:text-white flex items-center justify-center transition-all duration-200"
-            title="Join Server with Invite Link"
-          >
-            <Compass className="w-6 h-6" />
-          </button>
-        </div>
+        {/* Explore Servers inside rail */}
+        {onOpenExploreServers && (
+          <div className="relative group flex items-center justify-center w-full">
+            <button
+              onClick={onOpenExploreServers}
+              className="w-12 h-12 rounded-2xl bg-cyber-panel border border-cyber-border flex items-center justify-center text-cyber-cyan hover:bg-cyber-cyan hover:text-white hover:border-cyber-cyan transition-all duration-300 hover:rounded-xl group-hover:scale-105 shadow-glow-cyan"
+              title="Explore Public Servers"
+            >
+              <Compass className="w-5 h-5" />
+            </button>
+            <div className="absolute left-[80px] bg-cyber-input border border-cyber-border text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 whitespace-nowrap z-50 animate-fade-in">
+              Explore Servers
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

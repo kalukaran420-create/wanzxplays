@@ -12,8 +12,13 @@ model User {
   email                 String            @unique
   username              String            @unique
   displayName           String?
-  password              String
+  password              String?
+  googleId              String?           @unique
   avatar                String?
+  banner                String?           // Animated GIF or static banner URL
+  profileColor          String?           // Profile card accent color hex
+  profileEffect         String?           @default("glow") // Avatar glow / particle effect
+  customTag             String?           // Custom flair tag e.g. "Dev Lead 🚀"
   status                String            @default("online") // online, idle, dnd, offline
   customStatus          String?
   createdAt             DateTime          @default(now())
@@ -25,6 +30,8 @@ model User {
   reactions             Reaction[]
   directMessagesSent    DirectMessage[]   @relation("DMSent")
   dmParticipants        DMParticipant[]
+  giftsSent             Gift[]            @relation("GiftsSent")
+  giftsReceived         Gift[]            @relation("GiftsReceived")
 }
 
 model Server {
@@ -42,33 +49,30 @@ model Server {
   categories            Category[]
   channels              Channel[]
   roles                 Role[]
+  emojis                CustomEmoji[]
+}
+
+model CustomEmoji {
+  id                    String            @id @default(uuid())
+  name                  String
+  url                   String            // Static image or animated GIF URL
+  isAnimated            Boolean           @default(false)
+  serverId              String
+  server                Server            @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  createdAt             DateTime          @default(now())
 }
 
 model ServerMember {
   id                    String            @id @default(uuid())
-  serverId              String
-  server                Server            @relation(fields: [serverId], references: [id], onDelete: Cascade)
   userId                String
   user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  nickname              String?
-  joinedAt              DateTime          @default(now())
-
-  roles                 Role[]
-
-  @@unique([serverId, userId])
-}
-
-model Role {
-  id                    String            @id @default(uuid())
-  name                  String
-  color                 String            @default("#99aab5")
-  position              Int               @default(0)
-  permissions           String            @default("[]") // JSON string of permission codes
   serverId              String
   server                Server            @relation(fields: [serverId], references: [id], onDelete: Cascade)
-  createdAt             DateTime          @default(now())
+  roleId                String?
+  role                  Role?             @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  joinedAt              DateTime          @default(now())
 
-  members               ServerMember[]
+  @@unique([userId, serverId])
 }
 
 model Category {
@@ -78,7 +82,6 @@ model Category {
   serverId              String
   server                Server            @relation(fields: [serverId], references: [id], onDelete: Cascade)
   channels              Channel[]
-  createdAt             DateTime          @default(now())
 }
 
 model Channel {
@@ -91,25 +94,40 @@ model Channel {
   server                Server            @relation(fields: [serverId], references: [id], onDelete: Cascade)
   categoryId            String?
   category              Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  messages              Message[]
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
+
+  messages              Message[]
+}
+
+model Role {
+  id                    String            @id @default(uuid())
+  name                  String
+  color                 String            @default("#99aab5")
+  hoist                 Boolean           @default(false)
+  position              Int               @default(0)
+  permissions           String            @default("0") // Bitfield string
+  serverId              String
+  server                Server            @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  members               ServerMember[]
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @default(now()) @updatedAt
 }
 
 model Message {
   id                    String            @id @default(uuid())
   content               String
   fileUrl               String?
-  fileType              String?
+  fileType              String?           // image, video, audio, file
   channelId             String
   channel               Channel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
   authorId              String
   author                User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  deleted               Boolean           @default(false)
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
 
   reactions             Reaction[]
+  gifts                 Gift[]
 }
 
 model Reaction {
@@ -122,6 +140,30 @@ model Reaction {
   createdAt             DateTime          @default(now())
 
   @@unique([messageId, userId, emoji])
+}
+
+model Gift {
+  id                    String            @id @default(uuid())
+  giftType              String            // party_popper, rocket, crown, star, diamond
+  giftName              String            // Party Popper, Galactic Rocket, Crown of Glory, Stellar Star, Diamond Badge
+  giftIcon              String            // Emoji or animated icon e.g. 🎉, 🚀, 👑, ⭐, 💎
+  messageId             String?
+  message               Message?          @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  senderId              String
+  sender                User              @relation("GiftsSent", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId            String
+  receiver              User              @relation("GiftsReceived", fields: [receiverId], references: [id], onDelete: Cascade)
+  createdAt             DateTime          @default(now())
+}
+
+model CustomSound {
+  id                    String            @id @default(uuid())
+  name                  String
+  icon                  String            @default("🎵")
+  url                   String
+  serverId              String?
+  uploaderId            String
+  createdAt             DateTime          @default(now())
 }
 
 model DMConversation {

@@ -66,9 +66,7 @@ export const assignRoleToMember = async (req: AuthRequest, res: Response) => {
     await prisma.serverMember.update({
       where: { id: memberId },
       data: {
-        roles: {
-          connect: { id: roleId },
-        },
+        roleId: roleId || null,
       },
     });
 

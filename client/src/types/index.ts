@@ -6,6 +6,10 @@ export interface User {
   username: string;
   displayName: string;
   avatar?: string;
+  banner?: string;
+  profileColor?: string;
+  profileEffect?: string;
+  customTag?: string;
   status: UserStatus;
   customStatus?: string;
   createdAt: string;
@@ -27,6 +31,8 @@ export interface ServerMember {
   user: User;
   nickname?: string;
   joinedAt: string;
+  roleId?: string;
+  role?: Role;
   roles?: Role[];
 }
 
@@ -49,6 +55,28 @@ export interface Category {
   channels: Channel[];
 }
 
+export interface CustomEmoji {
+  id: string;
+  name: string;
+  url: string;
+  isAnimated: boolean;
+  serverId: string;
+  createdAt: string;
+}
+
+export interface Gift {
+  id: string;
+  giftType: string;
+  giftName: string;
+  giftIcon: string;
+  messageId?: string;
+  senderId: string;
+  sender?: User;
+  receiverId: string;
+  receiver?: User;
+  createdAt: string;
+}
+
 export interface Server {
   id: string;
   name: string;
@@ -60,6 +88,7 @@ export interface Server {
   categories?: Category[];
   channels?: Channel[];
   roles?: Role[];
+  emojis?: CustomEmoji[];
   createdAt: string;
 }
 
@@ -80,6 +109,7 @@ export interface Message {
   authorId: string;
   author: User;
   reactions?: MessageReaction[];
+  gifts?: Gift[];
   deleted?: boolean;
   createdAt: string;
   updatedAt?: string;

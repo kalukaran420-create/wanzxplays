@@ -6,7 +6,8 @@
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
-    "build": "cd server && npm run build && cd ../client && npm run build",
+    "build": "cd client && npm run build && cd ../server && npx prisma generate && npm run build",
+    "start": "cd server && npm run start",
     "prisma:generate": "cd server && npx prisma generate",
     "prisma:push": "cd server && npx prisma db push",
     "prisma:seed": "cd server && npx prisma db seed"

@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id                    String            @id @default(uuid())
+  email                 String            @unique
+  username              String            @unique
+  displayName           String?
+  password              String
+  avatar                String?
+  status                String            @default("online") // online, idle, dnd, offline
+  customStatus          String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  ownedServers          Server[]          @relation("ServerOwner")
+  serverMemberships     ServerMember[]
+  messages              Message[]
+  reactions             Reaction[]
+  directMessagesSent    DirectMessage[]   @relation("DMSent")
+  dmParticipants        DMParticipant[]
+}
+
+model Server {
+  id                    String            @id @default(uuid())
+  name                  String
+  icon                  String?
+  description           String?
+  inviteCode            String            @unique @default(uuid())
+  ownerId               String
+  owner                 User              @relation("ServerOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  members               ServerMember[]
+  categories            Category[]
+  channels              Channel[]
+  roles                 Role[]
+}
+
+model ServerMember {
+  id                    String            @id @default(uuid())
+  serverId              String
+  server                Server            @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  userId                String
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nickname              String?
+  joinedAt              DateTime          @default(now())
+
+  roles                 Role[]
+
+  @@unique([serverId, userId])
+}
+
+model Role {
+  id                    String            @id @default(uuid())
+  name                  String
+  color                 String            @default("#99aab5")
+  position              Int               @default(0)
+  permissions           String            @default("[]") // JSON string of permission codes
+  serverId              String
+  server                Server            @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  createdAt             DateTime          @default(now())
+
+  members               ServerMember[]
+}
+
+model Category {
+  id                    String            @id @default(uuid())
+  name                  String
+  position              Int               @default(0)
+  serverId              String
+  server                Server            @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  channels              Channel[]
+  createdAt             DateTime          @default(now())
+}
+
+model Channel {
+  id                    String            @id @default(uuid())
+  name                  String
+  type                  String            @default("TEXT") // TEXT, VOICE
+  topic                 String?
+  position              Int               @default(0)
+  serverId              String
+  server                Server            @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  categoryId            String?
+  category              Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  messages              Message[]
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+}
+
+model Message {
+  id                    String            @id @default(uuid())
+  content               String
+  fileUrl               String?
+  fileType              String?
+  channelId             String
+  channel               Channel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  authorId              String
+  author                User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  deleted               Boolean           @default(false)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  reactions             Reaction[]
+}
+
+model Reaction {
+  id                    String            @id @default(uuid())
+  emoji                 String
+  messageId             String
+  message               Message           @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId                String
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt             DateTime          @default(now())
+
+  @@unique([messageId, userId, emoji])
+}
+
+model DMConversation {
+  id                    String            @id @default(uuid())
+  isGroup               Boolean           @default(false)
+  name                  String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  participants          DMParticipant[]
+  messages              DirectMessage[]
+}
+
+model DMParticipant {
+  id                    String            @id @default(uuid())
+  conversationId        String
+  conversation          DMConversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId                String
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt              DateTime          @default(now())
+
+  @@unique([conversationId, userId])
+}
+
+model DirectMessage {
+  id                    String            @id @default(uuid())
+  content               String
+  fileUrl               String?
+  fileType              String?
+  conversationId        String
+  conversation          DMConversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId              String
+  sender                User              @relation("DMSent", fields: [senderId], references: [id], onDelete: Cascade)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+}

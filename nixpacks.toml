@@ -5,8 +5,7 @@ nixPkgs = ['nodejs_20', 'openssl']
 
 [phases.install]
 cmds = [
-  'npm install',
-  'npm run prisma:generate'
+  'npm install'
 ]
 
 [phases.build]

@@ -2,15 +2,20 @@
   "name": "pulsecord-monorepo",
   "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
   "scripts": {
-    "dev:server": "cd server && npm run dev",
-    "dev:client": "cd client && npm run dev",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
-    "build": "cd client && npm run build && cd ../server && npx prisma generate && npm run build",
-    "start": "cd server && npm run start",
-    "prisma:generate": "cd server && npx prisma generate",
-    "prisma:push": "cd server && npx prisma db push",
-    "prisma:seed": "cd server && npx prisma db seed"
+    "postinstall": "npm run prisma:generate",
+    "build": "npm run build --prefix client && npm run build --prefix server",
+    "start": "node server/dist/index.js",
+    "prisma:generate": "npm run prisma:generate --prefix server",
+    "prisma:push": "npm run prisma:push --prefix server",
+    "prisma:seed": "npm run prisma:seed --prefix server"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

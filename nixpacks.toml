@@ -1,0 +1,18 @@
+# Railway / Nixpacks Monorepo Deployment Config for PulseCord
+
+[phases.setup]
+nixPkgs = ['nodejs_20', 'openssl']
+
+[phases.install]
+cmds = [
+  'npm install',
+  'npm run prisma:generate'
+]
+
+[phases.build]
+cmds = [
+  'npm run build'
+]
+
+[start]
+cmd = 'node server/dist/index.js'

@@ -391,14 +391,28 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
             className="hidden"
             onChange={handleFileSelect}
           />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="absolute left-3.5 p-2 text-cyber-muted hover:text-cyber-cyan rounded-xl transition-colors z-10"
-            title="Attach file (up to 50MB)"
-          >
-            <Paperclip className="w-5 h-5" />
-          </button>
+          {/* Left Action Buttons Container (Paperclip + Emoji) */}
+          <div className="absolute left-2.5 inset-y-0 flex items-center space-x-0.5 z-10">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="p-2 text-cyber-muted hover:text-cyber-cyan rounded-xl transition-colors flex items-center justify-center"
+              title="Attach file (up to 50MB)"
+            >
+              <Paperclip className="w-5 h-5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowEmojiPicker((prev) => !prev)}
+              className={`p-2 rounded-xl transition-colors flex items-center justify-center ${
+                showEmojiPicker ? 'text-cyber-cyan bg-white/10' : 'text-cyber-muted hover:text-cyber-cyan'
+              }`}
+              title="Add Emoji"
+            >
+              <Smile className="w-5 h-5" />
+            </button>
+          </div>
 
           <input
             ref={textInputRef}
@@ -406,19 +420,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
             value={inputText}
             onChange={handleInputChange}
             placeholder={`Message #${activeChannel.name}`}
-            className="w-full pl-12 pr-24 py-3.5 bg-cyber-input text-white rounded-2xl outline-none border border-cyber-border focus:border-cyber-violet text-sm transition-all shadow-inner"
+            className="w-full pl-22 pr-14 py-3.5 bg-cyber-input text-white rounded-2xl outline-none border border-cyber-border focus:border-cyber-violet text-sm transition-all shadow-inner"
           />
-
-          <button
-            type="button"
-            onClick={() => setShowEmojiPicker((prev) => !prev)}
-            className={`absolute right-13 p-2 rounded-xl transition-colors z-10 ${
-              showEmojiPicker ? 'text-cyber-cyan bg-white/10' : 'text-cyber-muted hover:text-cyber-cyan'
-            }`}
-            title="Add Emoji"
-          >
-            <Smile className="w-5 h-5" />
-          </button>
 
           <button
             type="submit"

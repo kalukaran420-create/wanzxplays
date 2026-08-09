@@ -57,9 +57,58 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
     };
   }, [socket]);
 
+  const MIN_WIDTH = 200;
+  const MAX_WIDTH = 480;
+  const DEFAULT_WIDTH = 240;
+
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    const saved = localStorage.getItem('pulsecord_sidebar_width');
+    if (saved) {
+      const parsed = parseInt(saved, 10);
+      if (!isNaN(parsed) && parsed >= MIN_WIDTH && parsed <= MAX_WIDTH) {
+        return parsed;
+      }
+    }
+    return DEFAULT_WIDTH;
+  });
+
+  const [isResizing, setIsResizing] = useState(false);
+
+  const startResizing = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const serverSidebarWidth = 72;
+      const newWidth = e.clientX - serverSidebarWidth;
+      const clampedWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, newWidth));
+      setSidebarWidth(clampedWidth);
+      localStorage.setItem('pulsecord_sidebar_width', clampedWidth.toString());
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
+
   if (!activeServer) {
     return (
-      <div className="w-60 bg-cyber-panel flex flex-col justify-between border-r border-cyber-border text-cyber-muted p-4 text-xs font-semibold">
+      <div
+        style={{ width: `${sidebarWidth}px` }}
+        className="bg-cyber-panel flex flex-col justify-between border-r border-cyber-border text-cyber-muted p-4 text-xs font-semibold flex-shrink-0"
+      >
         <span>No server selected</span>
       </div>
     );
@@ -116,7 +165,20 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
   };
 
   return (
-    <div className="w-60 bg-cyber-panel flex flex-col h-full border-r border-cyber-border select-none relative z-10">
+    <div
+      style={{ width: `${sidebarWidth}px` }}
+      className={`bg-cyber-panel flex flex-col h-full border-r border-cyber-border select-none relative z-10 flex-shrink-0 ${
+        isResizing ? 'select-none' : ''
+      }`}
+    >
+      {/* Draggable Resize Handle on Right Edge */}
+      <div
+        onMouseDown={startResizing}
+        className={`absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-cyber-violet/50 transition-colors z-30 ${
+          isResizing ? 'bg-cyber-violet' : ''
+        }`}
+        title="Drag to resize sidebar"
+      />
       {/* Server Header Dropdown Menu */}
       <div className="relative border-b border-cyber-border">
         <button

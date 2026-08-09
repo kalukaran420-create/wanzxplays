@@ -166,8 +166,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
     clearAttachment();
 
     try {
-      // Allow Axios to automatically format multipart boundary headers
-      const res = await api.post('/messages', formData);
+      const res = await api.post('/messages', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
 
       if (res.data.message) {
         setMessages((prev) => {
@@ -176,7 +179,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
         });
         scrollToBottom();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to send message:', err);
     }
   };

@@ -79,10 +79,13 @@ export const useWebRTC = (channelId: string | null) => {
     // ICE Candidate handler
     pc.onicecandidate = (event) => {
       if (event.candidate && socket) {
+        console.log(`[ICE-DEBUG] Candidate generated for target ${targetSocketId}:`, event.candidate.candidate);
         socket.emit('webrtc:ice-candidate', {
           targetSocketId,
           candidate: event.candidate,
         });
+      } else if (!event.candidate) {
+        console.log(`[ICE-DEBUG] Candidate gathering finished for target ${targetSocketId}`);
       }
     };
 
@@ -453,13 +456,21 @@ export const useWebRTC = (channelId: string | null) => {
     };
 
     const handleIceCandidate = async ({ senderSocketId, candidate }: { senderSocketId: string; candidate: any }) => {
+      console.log(`[ICE-DEBUG] Candidate received from ${senderSocketId}:`, candidate?.candidate);
       const pc = peerConnectionsRef.current[senderSocketId];
-      if (pc && pc.remoteDescription) {
-        try {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (err) {
-          console.warn(`🎥 [WebRTC Pipeline] Add ICE candidate warning:`, err);
-        }
+      if (!pc) {
+        console.warn(`[ICE-DEBUG] DROPPED CANDIDATE: RTCPeerConnection for ${senderSocketId} does not exist yet!`);
+        return;
+      }
+      if (!pc.remoteDescription) {
+        console.warn(`[ICE-DEBUG] DROPPED CANDIDATE: pc.remoteDescription is NULL for ${senderSocketId}! Signaling state: ${pc.signalingState}`);
+        return;
+      }
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        console.log(`[ICE-DEBUG] Successfully added ICE candidate from ${senderSocketId}`);
+      } catch (err) {
+        console.error(`[ICE-DEBUG] Error calling addIceCandidate from ${senderSocketId}:`, err);
       }
     };
 

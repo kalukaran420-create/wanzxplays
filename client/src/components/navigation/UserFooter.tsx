@@ -94,7 +94,7 @@ export const UserFooter: React.FC<UserFooterProps> = ({ onOpenSettings, connecte
             )}`}
           />
         </div>
-        <div className="min-w-0 leading-tight">
+        <div className="min-w-0 leading-tight flex-1">
           <div className="font-bold text-xs text-white truncate group-hover:text-cyber-cyan transition-colors">
             {user.displayName || user.username}
           </div>
@@ -102,16 +102,25 @@ export const UserFooter: React.FC<UserFooterProps> = ({ onOpenSettings, connecte
             {user.customStatus || `@${user.username}`}
           </div>
         </div>
-        <ChevronUp className="w-3.5 h-3.5 text-cyber-muted flex-shrink-0 ml-auto group-hover:text-white transition-colors" />
       </button>
 
-      {/* Controls */}
-      <div className="flex items-center space-x-1 text-cyber-muted">
+      {/* Controls Bar (Status Chevron, Share Screen, Mic, Speaker, Settings) */}
+      <div className="flex items-center space-x-0.5 text-cyber-muted flex-shrink-0">
+        <button
+          onClick={() => setShowStatusMenu(!showStatusMenu)}
+          className={`p-1.5 rounded-xl hover:bg-white/10 hover:text-white transition-colors flex items-center justify-center ${
+            showStatusMenu ? 'text-cyber-cyan bg-white/10' : ''
+          }`}
+          title="Status Options"
+        >
+          <ChevronUp className="w-4 h-4" />
+        </button>
+
         {/* Share Screen Quick Button */}
         {connectedVoiceChannel && (
           <button
             onClick={() => selectChannel(connectedVoiceChannel)}
-            className="p-1.5 rounded-xl bg-aurora-gradient text-white shadow-glow-violet hover:opacity-90 transition-all"
+            className="p-1.5 rounded-xl bg-aurora-gradient text-white shadow-glow-violet hover:opacity-90 transition-all flex items-center justify-center"
             title="Share Screen (1080p 60fps)"
           >
             <Monitor className="w-4 h-4" />
@@ -120,7 +129,7 @@ export const UserFooter: React.FC<UserFooterProps> = ({ onOpenSettings, connecte
 
         <button
           onClick={() => setIsMuted(!isMuted)}
-          className={`p-1.5 rounded-xl hover:bg-white/10 hover:text-white transition-colors ${
+          className={`p-1.5 rounded-xl hover:bg-white/10 hover:text-white transition-colors flex items-center justify-center ${
             isMuted ? 'text-cyber-rose bg-cyber-rose/10' : ''
           }`}
           title={isMuted ? 'Unmute' : 'Mute'}
@@ -130,7 +139,7 @@ export const UserFooter: React.FC<UserFooterProps> = ({ onOpenSettings, connecte
 
         <button
           onClick={() => setIsDeafened(!isDeafened)}
-          className={`p-1.5 rounded-xl hover:bg-white/10 hover:text-white transition-colors ${
+          className={`p-1.5 rounded-xl hover:bg-white/10 hover:text-white transition-colors flex items-center justify-center ${
             isDeafened ? 'text-cyber-rose bg-cyber-rose/10' : ''
           }`}
           title={isDeafened ? 'Undeafen' : 'Deafen'}
@@ -140,7 +149,7 @@ export const UserFooter: React.FC<UserFooterProps> = ({ onOpenSettings, connecte
 
         <button
           onClick={onOpenSettings}
-          className="p-1.5 rounded-xl hover:bg-white/10 hover:text-white transition-colors"
+          className="p-1.5 rounded-xl hover:bg-white/10 hover:text-white transition-colors flex items-center justify-center"
           title="User Settings"
         >
           <Settings className="w-4 h-4" />

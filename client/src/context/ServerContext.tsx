@@ -7,9 +7,11 @@ interface ServerContextType {
   servers: Server[];
   activeServer: Server | null;
   activeChannel: Channel | null;
+  connectedVoiceChannel: Channel | null;
   loading: boolean;
   selectServer: (serverId: string) => Promise<void>;
   selectChannel: (channel: Channel) => void;
+  setConnectedVoiceChannel: (channel: Channel | null) => void;
   refreshServers: () => Promise<void>;
   createServer: (name: string, description?: string, icon?: string) => Promise<Server>;
   joinServer: (inviteCode: string) => Promise<string>;
@@ -25,6 +27,7 @@ export const ServerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [servers, setServers] = useState<Server[]>([]);
   const [activeServer, setActiveServer] = useState<Server | null>(null);
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
+  const [connectedVoiceChannel, setConnectedVoiceChannel] = useState<Channel | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   const refreshServers = async () => {
@@ -136,9 +139,11 @@ export const ServerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         servers,
         activeServer,
         activeChannel,
+        connectedVoiceChannel,
         loading,
         selectServer,
         selectChannel,
+        setConnectedVoiceChannel,
         refreshServers,
         createServer,
         joinServer,

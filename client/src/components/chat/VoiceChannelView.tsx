@@ -3,6 +3,7 @@ import { Channel } from '../../types';
 import { useWebRTC } from '../../hooks/useWebRTC';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
+import { useServer } from '../../context/ServerContext';
 import { SoundboardModal } from '../voice/SoundboardModal';
 import { playSoundEffect, setSoundboardVolume } from '../../utils/soundSynthesizer';
 import {
@@ -17,6 +18,7 @@ import {
   RefreshCw,
   Radio,
   Headphones,
+  PhoneOff,
 } from 'lucide-react';
 
 interface VoiceChannelViewProps {
@@ -33,6 +35,7 @@ interface SoundToast {
 export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) => {
   const { socket } = useSocket();
   const { user } = useAuth();
+  const { setConnectedVoiceChannel } = useServer();
   const {
     isSharing,
     localStream,
@@ -592,6 +595,15 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
           >
             <Radio className="w-5 h-5" />
             <span className="text-xs font-extrabold hidden sm:inline">Soundboard</span>
+          </button>
+
+          {/* Disconnect Voice Button */}
+          <button
+            onClick={() => setConnectedVoiceChannel(null)}
+            className="p-3 rounded-2xl border bg-cyber-rose/20 border-cyber-rose/50 text-cyber-rose hover:bg-cyber-rose/30 transition-all flex items-center justify-center"
+            title="Disconnect Voice"
+          >
+            <PhoneOff className="w-5 h-5" />
           </button>
         </div>
 

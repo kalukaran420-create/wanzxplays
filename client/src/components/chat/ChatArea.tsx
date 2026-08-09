@@ -4,6 +4,7 @@ import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
 import { MessageItem } from './MessageItem';
 import { VoiceChannelView } from './VoiceChannelView';
+import { VoicePreJoinView } from './VoicePreJoinView';
 import { Message, User } from '../../types';
 import { api } from '../../services/api';
 import { UserProfileModal } from '../modals/UserProfileModal';
@@ -18,7 +19,7 @@ interface ChatAreaProps {
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers, onOpenQuickSwitcher }) => {
-  const { activeServer, activeChannel } = useServer();
+  const { activeServer, activeChannel, connectedVoiceChannel } = useServer();
   const { socket } = useSocket();
   const { user } = useAuth();
 
@@ -261,7 +262,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
   }
 
   if (activeChannel.type === 'VOICE') {
-    return <VoiceChannelView channel={activeChannel} />;
+    const isConnectedToVoice = connectedVoiceChannel?.id === activeChannel.id;
+    if (isConnectedToVoice) {
+      return <VoiceChannelView channel={activeChannel} />;
+    }
+    return <VoicePreJoinView channel={activeChannel} />;
   }
 
   return (

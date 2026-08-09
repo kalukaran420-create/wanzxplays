@@ -34,11 +34,17 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
   onOpenInviteModal,
   onOpenUserSettings,
 }) => {
-  const { activeServer, activeChannel, selectChannel, deleteChannel } = useServer();
+  const {
+    activeServer,
+    activeChannel,
+    selectChannel,
+    deleteChannel,
+    connectedVoiceChannel,
+    setConnectedVoiceChannel,
+  } = useServer();
   const { socket } = useSocket();
   const [showServerMenu, setShowServerMenu] = useState(false);
   const [collapsedCategories, setCollapsedCategories] = useState<{ [key: string]: boolean }>({});
-  const [connectedVoiceChannel, setConnectedVoiceChannel] = useState<Channel | null>(null);
   const [voiceRoomsSummary, setVoiceRoomsSummary] = useState<{ [channelId: string]: VoiceParticipant[] }>({});
   const [channelToDelete, setChannelToDelete] = useState<{ id: string; name: string } | null>(null);
 
@@ -285,13 +291,7 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
                     return (
                       <div key={channel.id} className="space-y-1">
                         <div
-                          onClick={() => {
-                            if (isVoice) {
-                              handleVoiceConnect(channel);
-                            } else {
-                              selectChannel(channel);
-                            }
-                          }}
+                          onClick={() => selectChannel(channel)}
                           className={`group flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all duration-200 ${
                             isSelected
                               ? 'bg-cyber-cyan/10 text-white border border-cyber-cyan/30 shadow-glow-cyan'
@@ -361,7 +361,7 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
                   return (
                     <div key={channel.id} className="space-y-1">
                       <div
-                        onClick={() => handleVoiceConnect(channel)}
+                        onClick={() => selectChannel(channel)}
                         className={`group flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all duration-200 ${
                           isSelected
                             ? 'bg-cyber-cyan/10 text-white border border-cyber-cyan/30 shadow-glow-cyan'

@@ -10,9 +10,8 @@ cmds = [
 
 [phases.build]
 cmds = [
-  'cd server && npx prisma generate --schema=prisma/schema.postgresql.prisma',
-  'cd client && npx vite build',
-  'cd server && npx tsc'
+  'cd server && node ../node_modules/prisma/build/index.js generate --schema=prisma/schema.postgresql.prisma',
+  'npm run build'
 ]
 
 [start]

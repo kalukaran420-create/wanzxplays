@@ -306,7 +306,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
       </div>
 
       {/* Messages Scroll Feed */}
-      <div className="flex-1 overflow-y-auto py-4 space-y-1">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden py-4 space-y-1">
         {loading && messages.length === 0 ? (
           <div className="p-8 text-center text-xs text-cyber-muted font-bold flex items-center justify-center space-x-2">
             <Sparkles className="w-4 h-4 text-cyber-violet animate-spin" />

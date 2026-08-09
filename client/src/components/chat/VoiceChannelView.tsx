@@ -295,7 +295,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
   };
 
   return (
-    <div className="flex-1 bg-cyber-chat flex flex-col h-full overflow-hidden select-none relative">
+    <div className="flex-1 min-w-0 bg-cyber-chat flex flex-col h-full overflow-hidden select-none relative">
       {/* Hidden HTML5 DOM Audio Elements for Remote Peer Microphone Playback */}
       {Object.entries(remoteAudioStreams).map(([peerSocketId, stream]) => (
         <audio

@@ -52,7 +52,7 @@ const MainLayout: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-discord-tertiary select-none">
+    <div className="flex h-screen w-screen max-w-full overflow-hidden bg-discord-tertiary select-none">
       {/* 1. Leftmost Server Bar */}
       <ServerSidebar
         activeView={activeView}

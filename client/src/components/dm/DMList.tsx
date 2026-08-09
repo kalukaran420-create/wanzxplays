@@ -46,8 +46,8 @@ export const DMList: React.FC<DMListProps> = ({
   };
 
   return (
-    <div className="w-60 bg-discord-secondary flex flex-col justify-between border-r border-black/20 select-none flex-shrink-0">
-      <div className="flex-1 overflow-y-auto p-2 space-y-4">
+    <div className="w-60 bg-discord-secondary flex flex-col justify-between border-r border-black/20 select-none flex-shrink-0 overflow-x-hidden">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-4">
         {/* Header Search button */}
         <div className="h-12 border-b border-black/20 -mx-2 -mt-2 px-4 flex items-center shadow-sm">
           <div className="w-full py-1.5 px-2 bg-discord-tertiary text-discord-muted rounded text-xs flex items-center space-x-2">

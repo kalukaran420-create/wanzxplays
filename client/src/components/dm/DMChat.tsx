@@ -103,7 +103,7 @@ export const DMChat: React.FC<DMChatProps> = ({ conversation }) => {
       </div>
 
       {/* Messages Feed */}
-      <div className="flex-1 overflow-y-auto py-4 px-4 space-y-3">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-4 space-y-3">
         <div className="mb-6">
           <img
             src={otherUser.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${otherUser.username}`}

@@ -62,6 +62,21 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({ isOpen
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Confirmation Modal State
+  const [confirmModalConfig, setConfirmModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    onConfirm: () => {},
+  });
+
   useEffect(() => {
     if (activeServer) {
       setName(activeServer.name || '');
@@ -194,21 +209,6 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({ isOpen
       setLoading(false);
     }
   };
-
-  // Confirmation Modal State
-  const [confirmModalConfig, setConfirmModalConfig] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    confirmText: string;
-    onConfirm: () => void;
-  }>({
-    isOpen: false,
-    title: '',
-    message: '',
-    confirmText: 'Confirm',
-    onConfirm: () => {},
-  });
 
   // 4. KICK MEMBER
   const handleKickMember = (memberId: string, username: string) => {

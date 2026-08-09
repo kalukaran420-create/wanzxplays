@@ -31,6 +31,8 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({ isOpen
   const { activeServer, refreshServers, selectServer } = useServer();
   const { user } = useAuth();
 
+  const isOwner = activeServer?.ownerId === user?.id;
+
   const [activeTab, setActiveTab] = useState<'overview' | 'roles' | 'channels'>('overview');
 
   // Overview Tab State
@@ -390,9 +392,16 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({ isOpen
 
                   {/* Server Icon Section */}
                   <div>
-                    <label className="block text-[11px] font-extrabold text-cyber-muted uppercase tracking-wider mb-1.5">
-                      Server Icon
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[11px] font-extrabold text-cyber-muted uppercase tracking-wider">
+                        Server Icon
+                      </label>
+                      {!isOwner && (
+                        <span className="text-[10px] font-bold text-cyber-rose bg-cyber-rose/10 px-2 py-0.5 rounded-md border border-cyber-rose/20">
+                          Owner Only
+                        </span>
+                      )}
+                    </div>
                     <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
                       {/* Icon Preview */}
                       <div className="w-16 h-16 rounded-2xl bg-cyber-panel border border-cyber-border overflow-hidden flex-shrink-0 flex items-center justify-center shadow-lg relative group">
@@ -401,14 +410,16 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({ isOpen
                         ) : (
                           <Image className="w-7 h-7 text-cyber-muted" />
                         )}
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity text-white text-[9px] font-bold"
-                        >
-                          <Camera className="w-4 h-4 mb-0.5" />
-                          Change
-                        </button>
+                        {isOwner && (
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity text-white text-[9px] font-bold cursor-pointer"
+                          >
+                            <Camera className="w-4 h-4 mb-0.5" />
+                            Change
+                          </button>
+                        )}
                       </div>
 
                       <div className="flex-1 w-full space-y-2">
@@ -418,6 +429,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({ isOpen
                           type="file"
                           accept="image/png, image/jpeg, image/jpg, image/gif"
                           onChange={handleIconFileSelect}
+                          disabled={!isOwner}
                           className="hidden"
                         />
 
@@ -426,8 +438,8 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({ isOpen
                           <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            disabled={loading}
-                            className="px-3.5 py-2 bg-cyber-violet hover:bg-cyber-violet/80 text-white rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shadow-glow-violet flex-shrink-0 cursor-pointer"
+                            disabled={!isOwner || loading}
+                            className="px-3.5 py-2 bg-cyber-violet hover:bg-cyber-violet/80 text-white rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shadow-glow-violet flex-shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
                           >
                             <Upload className="w-3.5 h-3.5" />
                             <span>Upload Image</span>
@@ -437,8 +449,9 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({ isOpen
                             type="text"
                             value={icon}
                             onChange={(e) => setIcon(e.target.value)}
-                            placeholder="Or paste an image URL..."
-                            className="flex-1 bg-cyber-input text-white border border-cyber-border rounded-xl px-3.5 py-2 text-xs outline-none focus:border-cyber-cyan transition-all"
+                            disabled={!isOwner}
+                            placeholder={isOwner ? "Or paste an image URL..." : "Only server owner can change icon"}
+                            className="flex-1 bg-cyber-input text-white border border-cyber-border rounded-xl px-3.5 py-2 text-xs outline-none focus:border-cyber-cyan transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                           />
                         </div>
 
@@ -449,10 +462,11 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({ isOpen
                             <button
                               key={preset}
                               type="button"
+                              disabled={!isOwner}
                               onClick={() =>
                                 setIcon(`https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(preset + name)}`)
                               }
-                              className="text-[10px] px-2 py-0.5 rounded-lg bg-cyber-panel hover:bg-cyber-violet hover:text-white text-cyber-cyan border border-white/5 transition-all cursor-pointer"
+                              className="text-[10px] px-2 py-0.5 rounded-lg bg-cyber-panel hover:bg-cyber-violet hover:text-white text-cyber-cyan border border-white/5 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               {preset}
                             </button>

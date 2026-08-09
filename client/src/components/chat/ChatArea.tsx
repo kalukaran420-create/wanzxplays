@@ -250,7 +250,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
 
   if (!activeChannel) {
     return (
-      <div className="flex-1 bg-cyber-chat flex flex-col items-center justify-center text-cyber-muted p-8 select-none">
+      <div className="flex-1 min-w-0 bg-cyber-chat flex flex-col items-center justify-center text-cyber-muted p-8 select-none">
         <div className="w-16 h-16 rounded-3xl bg-cyber-input flex items-center justify-center mb-4 border border-cyber-border">
           <Hash className="w-8 h-8 text-cyber-violet" />
         </div>
@@ -265,7 +265,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
   }
 
   return (
-    <div className="flex-1 bg-cyber-chat flex flex-col h-full overflow-hidden relative">
+    <div className="flex-1 min-w-0 bg-cyber-chat flex flex-col h-full overflow-hidden relative">
       {/* Channel Header Bar */}
       <div className="h-14 border-b border-cyber-border px-6 flex items-center justify-between shadow-sm bg-cyber-chat/80 backdrop-blur-md z-10 select-none">
         <div className="flex items-center space-x-2.5 min-w-0">

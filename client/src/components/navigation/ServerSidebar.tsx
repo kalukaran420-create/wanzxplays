@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { useServer } from '../../context/ServerContext';
 import { Plus, Compass, Zap } from 'lucide-react';
 
@@ -10,10 +10,6 @@ interface ServerSidebarProps {
   setActiveView?: (view: 'server' | 'dm') => void;
 }
 
-const MIN_WIDTH = 56;
-const MAX_WIDTH = 140;
-const DEFAULT_WIDTH = 72;
-
 export const ServerSidebar: React.FC<ServerSidebarProps> = ({
   onOpenCreateServer,
   onOpenJoinServer,
@@ -23,68 +19,8 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
 }) => {
   const { servers, activeServer, selectServer } = useServer();
 
-  const [railWidth, setRailWidth] = useState<number>(() => {
-    const saved = localStorage.getItem('pulsecord_server_rail_width');
-    if (saved) {
-      const parsed = parseInt(saved, 10);
-      if (!isNaN(parsed) && parsed >= MIN_WIDTH && parsed <= MAX_WIDTH) {
-        return parsed;
-      }
-    }
-    return DEFAULT_WIDTH;
-  });
-
-  const [isResizing, setIsResizing] = useState(false);
-  const dragRef = useRef<{ startX: number; startWidth: number }>({ startX: 0, startWidth: DEFAULT_WIDTH });
-
-  const startResizing = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragRef.current = { startX: e.clientX, startWidth: railWidth };
-    setIsResizing(true);
-  };
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing) return;
-      const deltaX = e.clientX - dragRef.current.startX;
-      const newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, dragRef.current.startWidth + deltaX));
-      setRailWidth(newWidth);
-      localStorage.setItem('pulsecord_server_rail_width', newWidth.toString());
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
-
-    if (isResizing) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-    }
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isResizing]);
-
   return (
-    <div
-      style={{ width: `${railWidth}px`, minWidth: `${railWidth}px`, maxWidth: `${railWidth}px` }}
-      className={`bg-cyber-base flex flex-col items-center py-3 space-y-2 select-none flex-shrink-0 border-r border-cyber-border z-20 relative ${
-        isResizing ? 'select-none' : ''
-      }`}
-    >
-      {/* Active Drag Global Overlay */}
-      {isResizing && <div className="fixed inset-0 cursor-col-resize z-50 select-none" />}
-
-      {/* Resize Handle on Right Edge (Server Rail <-> Channel List) */}
-      <div
-        onMouseDown={startResizing}
-        className={`absolute top-0 -right-2 w-4 h-full cursor-col-resize hover:bg-cyber-violet/60 transition-colors z-40 ${
-          isResizing ? 'bg-cyber-violet' : ''
-        }`}
-        title="Drag to resize server rail"
-      />
+    <div className="w-[72px] min-w-[72px] max-w-[72px] bg-cyber-base flex flex-col items-center py-3 space-y-2 select-none flex-shrink-0 border-r border-cyber-border z-20">
       {/* App Home Button */}
       <div className="relative group flex items-center justify-center w-full">
         <div

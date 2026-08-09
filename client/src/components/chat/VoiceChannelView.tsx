@@ -196,47 +196,15 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
   };
 
   const attachVideoStream = useCallback((node: HTMLVideoElement | null, stream: MediaStream | null) => {
-    console.log('ENTERED attachVideoStream:', { isSharing, hasNode: !!node, streamId: stream?.id, streamActive: stream?.active, numTracks: stream?.getTracks().length });
-    if (!node) {
-      console.log('attachVideoStream EXIT: node is null');
-      return;
-    }
+    if (!node) return;
     if (stream) {
-      if (node.srcObject === stream) {
-        console.log('attachVideoStream EXIT: node.srcObject is already equal to stream');
-        return;
-      }
-      console.log('STREAM ATTACHED:', stream);
+      if (node.srcObject === stream) return;
       node.srcObject = stream;
-      console.log('ABOUT TO CALL node.play()...');
-
-      try {
-        const p = node.play();
-        console.log('node.play() RETURNED PROMISE:', p);
-        if (p !== undefined) {
-          p.then(() => {
-            console.log('PLAY RESULT:', 'success');
-            setTimeout(() => {
-              // TEMP-DEBUG STEP 1: Log preview video dimensions
-              console.log('TEMP-DEBUG STEP 1 [VIDEO ELEMENT STATUS]:', {
-                isSharingSender: isSharing,
-                videoWidth: node.videoWidth,
-                videoHeight: node.videoHeight,
-                readyState: node.readyState,
-              });
-            }, 2000);
-          }).catch((err) => {
-            console.log('PLAY RESULT ERROR:', err);
-          });
-        }
-      } catch (err) {
-        console.log('node.play() THREW SYNCHRONOUS ERROR:', err);
-      }
+      node.play().catch((err) => console.warn('🎥 [VoiceChannelView] Video play warning:', err));
     } else {
-      console.log('attachVideoStream EXIT: stream is null');
       node.srcObject = null;
     }
-  }, [isSharing]);
+  }, []);
 
   const videoCallbackRef = useCallback(
     (node: HTMLVideoElement | null) => {
@@ -273,7 +241,6 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
           muted={isDeafened}
           ref={(el) => {
             if (el && stream) {
-              console.log(`🔊 [VoiceChannelView] Attaching remote mic stream from socket ${peerSocketId} to DOM <audio> element`);
               el.srcObject = stream;
               el.play().catch((err) => console.warn('🔊 [VoiceChannelView] DOM audio play error:', err));
             }
@@ -332,36 +299,12 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
                   : 'relative w-full flex-1 min-h-[420px] aspect-video flex flex-col items-center justify-center rounded-3xl overflow-hidden shadow-2xl border border-cyber-cyan/30 shadow-glow-cyan group bg-black'
               }`}
             >
-              {/* Live Video Frame with JSX Event Listeners & Explicit Dimensions */}
+              {/* Live Video Frame */}
               <video
                 ref={videoCallbackRef}
                 autoPlay
                 playsInline
                 muted
-                onLoadedMetadata={(e) => {
-                  const v = e.currentTarget;
-                  // TEMP-DEBUG STEP 1: Log onLoadedMetadata
-                  console.log('TEMP-DEBUG STEP 1 [JSX ONLOADEDMETADATA]:', {
-                    isSharingSender: isSharing,
-                    videoWidth: v.videoWidth,
-                    videoHeight: v.videoHeight,
-                    readyState: v.readyState,
-                  });
-                  v.play().then(() => {
-                    console.log('PLAY RESULT:', 'success');
-                    console.log('VIDEO DIMENSIONS:', v.videoWidth, v.videoHeight, 'READY STATE:', v.readyState);
-                  }).catch(err => {
-                    console.log('PLAY RESULT ERROR:', err);
-                  });
-                }}
-                onCanPlay={(e) => {
-                  const v = e.currentTarget;
-                  console.log('TEMP-DEBUG STEP 1 [JSX ONCANPLAY]:', v.videoWidth, 'x', v.videoHeight);
-                }}
-                onPlaying={(e) => {
-                  const v = e.currentTarget;
-                  console.log('TEMP-DEBUG STEP 1 [JSX ONPLAYING]:', v.videoWidth, 'x', v.videoHeight);
-                }}
                 style={{ minHeight: '380px', width: '100%', height: '100%' }}
                 className="w-full h-full min-h-[380px] object-contain bg-black rounded-2xl"
               />

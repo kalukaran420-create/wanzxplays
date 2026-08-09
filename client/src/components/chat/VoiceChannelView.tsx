@@ -62,7 +62,11 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
   const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const remotePresenterObj = Object.values(remoteStreams)[0];
+  const remotePresenterObj = presenterInfo?.socketId
+    ? remoteStreams[presenterInfo.socketId] || Object.values(remoteStreams)[0]
+    : Object.values(remoteStreams)[0];
+
+  const isSomeonePresenting = isSharing || !!presenterInfo || Object.keys(remoteStreams).length > 0;
   const activeStream = isSharing ? localStream : remotePresenterObj?.stream;
   const activePresenterName = isSharing
     ? 'You'
@@ -190,7 +194,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
   }, [socket, isSoundboardMuted, soundVolume]);
 
   const formatStatsLabel = () => {
-    if (!streamStats) return '1080p @ 60fps Target';
+    if (!streamStats) return 'Connecting...';
     const resLabel = streamStats.height >= 1080 ? '1080p' : `${streamStats.height}p`;
     return `${resLabel} @ ${streamStats.frameRate}fps (${streamStats.width}x${streamStats.height})`;
   };
@@ -206,19 +210,14 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
       node.autoplay = true;
       node.playsInline = true;
 
-      // Only attempt play if paused or unstarted to prevent in-flight AbortError
       if (node.paused) {
         const playPromise = node.play();
         if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-              console.log('🎥 [VoiceChannelView] Video play resolved successfully!');
-            })
-            .catch((err) => {
-              if (err.name !== 'AbortError') {
-                console.warn('🎥 [VoiceChannelView] Video play warning:', err);
-              }
-            });
+          playPromise.catch((err) => {
+            if (err.name !== 'AbortError') {
+              console.warn('🎥 [VoiceChannelView] Video play warning:', err);
+            }
+          });
         }
       }
     } else {
@@ -249,8 +248,6 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
       }
     }
   };
-
-  const videoKey = isSharing ? 'local-screen-video' : (presenterInfo?.socketId ? `remote-screen-${presenterInfo.socketId}` : 'remote-screen-video');
 
   return (
     <div className="flex-1 bg-cyber-chat flex flex-col h-full overflow-hidden select-none relative">
@@ -311,7 +308,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
         )}
 
         {/* Screen Share Mode vs Participant Grid Mode */}
-        {activeStream ? (
+        {isSomeonePresenting ? (
           <div className="flex-1 w-full max-w-5xl flex flex-col items-center justify-center space-y-4 h-full min-h-[450px]">
             {/* Screen Share Stage with Viewer Maximize / Restore Controls */}
             <div
@@ -321,9 +318,9 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
                   : 'relative w-full flex-1 min-h-[420px] aspect-video flex flex-col items-center justify-center rounded-3xl overflow-hidden shadow-2xl border border-cyber-cyan/30 shadow-glow-cyan group bg-black'
               }`}
             >
-              {/* Live Video Frame with Stable Key */}
+              {/* Live Video Frame with Static Key */}
               <video
-                key={videoKey}
+                key="screen-share-video"
                 ref={videoCallbackRef}
                 autoPlay
                 playsInline

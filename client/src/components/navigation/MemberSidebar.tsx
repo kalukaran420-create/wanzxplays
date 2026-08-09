@@ -67,15 +67,20 @@ export const MemberSidebar: React.FC = () => {
 
   return (
     <div
-      style={{ width: `${sidebarWidth}px` }}
+      style={{ width: `${sidebarWidth}px`, minWidth: `${sidebarWidth}px`, maxWidth: `${sidebarWidth}px` }}
       className={`bg-cyber-panel border-l border-cyber-border flex flex-col select-none flex-shrink-0 z-10 relative ${
         isResizing ? 'select-none' : ''
       }`}
     >
+      {/* Active Drag Global Overlay */}
+      {isResizing && (
+        <div className="fixed inset-0 cursor-col-resize z-50 select-none" />
+      )}
+
       {/* Draggable Resize Handle on Left Edge */}
       <div
         onMouseDown={startResizing}
-        className={`absolute top-0 left-0 w-1.5 h-full cursor-col-resize hover:bg-cyber-violet/50 transition-colors z-30 ${
+        className={`absolute top-0 -left-1.5 w-3 h-full cursor-col-resize hover:bg-cyber-violet/60 transition-colors z-40 ${
           isResizing ? 'bg-cyber-violet' : ''
         }`}
         title="Drag to resize member sidebar"

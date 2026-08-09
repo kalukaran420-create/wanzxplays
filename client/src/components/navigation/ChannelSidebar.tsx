@@ -106,7 +106,7 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
   if (!activeServer) {
     return (
       <div
-        style={{ width: `${sidebarWidth}px` }}
+        style={{ width: `${sidebarWidth}px`, minWidth: `${sidebarWidth}px`, maxWidth: `${sidebarWidth}px` }}
         className="bg-cyber-panel flex flex-col justify-between border-r border-cyber-border text-cyber-muted p-4 text-xs font-semibold flex-shrink-0"
       >
         <span>No server selected</span>
@@ -149,11 +149,11 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
                   p.isSpeaking ? 'ring-2 ring-cyber-emerald shadow-glow-emerald scale-105' : 'ring-1 ring-white/10'
                 }`}
               />
-              {(p.isMuted || p.isDeafened) && (
-                <div className="absolute -bottom-0.5 -right-0.5 p-0.2 bg-cyber-rose rounded-full text-white">
-                  <MicOff className="w-2 h-2" />
-                </div>
-              )}
+              <div
+                className={`absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ${
+                  p.isMuted ? 'bg-cyber-rose' : 'bg-cyber-emerald'
+                }`}
+              />
             </div>
             <span className="text-[11px] font-semibold text-cyber-muted hover:text-white truncate max-w-[110px]">
               {p.displayName || p.username}
@@ -166,15 +166,20 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
 
   return (
     <div
-      style={{ width: `${sidebarWidth}px` }}
+      style={{ width: `${sidebarWidth}px`, minWidth: `${sidebarWidth}px`, maxWidth: `${sidebarWidth}px` }}
       className={`bg-cyber-panel flex flex-col h-full border-r border-cyber-border select-none relative z-10 flex-shrink-0 ${
         isResizing ? 'select-none' : ''
       }`}
     >
+      {/* Active Drag Global Overlay */}
+      {isResizing && (
+        <div className="fixed inset-0 cursor-col-resize z-50 select-none" />
+      )}
+
       {/* Draggable Resize Handle on Right Edge */}
       <div
         onMouseDown={startResizing}
-        className={`absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-cyber-violet/50 transition-colors z-30 ${
+        className={`absolute top-0 -right-1.5 w-3 h-full cursor-col-resize hover:bg-cyber-violet/60 transition-colors z-40 ${
           isResizing ? 'bg-cyber-violet' : ''
         }`}
         title="Drag to resize sidebar"

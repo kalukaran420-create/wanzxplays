@@ -93,22 +93,23 @@ export const useWebRTC = (channelId: string | null) => {
         (event.receiver as any).playoutDelayHint = 0;
       }
 
-      // Ensure a valid MediaStream is constructed even if streams[0] is absent
-      const stream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
-
       // Handle remote microphone audio stream
       if (event.track.kind === 'audio') {
+        const audioStream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
         setRemoteAudioStreams((prev) => ({
           ...prev,
-          [targetSocketId]: stream,
+          [targetSocketId]: audioStream,
         }));
       }
 
-      // Handle remote video stream for screen share
+      // Handle remote video stream for screen share — construct fresh MediaStream for reliable React state updates
       if (event.track.kind === 'video') {
         const peerUsername = peerUsernamesRef.current[targetSocketId] || presenterInfoRef.current?.username || 'Peer Presenter';
+        const freshVideoStream = new MediaStream([event.track]);
 
-        const vTrack = stream.getVideoTracks()[0];
+        console.log(`🎥 [WebRTC Pipeline] Constructed fresh MediaStream (${freshVideoStream.id}) for remote video track (${event.track.id})`);
+
+        const vTrack = freshVideoStream.getVideoTracks()[0];
         if (vTrack) {
           const settings = vTrack.getSettings();
           setStreamStats({
@@ -121,7 +122,7 @@ export const useWebRTC = (channelId: string | null) => {
         setRemoteStreams((prev) => ({
           ...prev,
           [targetSocketId]: {
-            stream,
+            stream: freshVideoStream,
             username: peerUsername,
           },
         }));
@@ -426,7 +427,7 @@ export const useWebRTC = (channelId: string | null) => {
       try {
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
 
-        // Ensure receiver transceiver direction receives incoming screen video
+        // Ensure receiver transceiver direction accepts incoming screen video
         pc.getTransceivers().forEach((t) => {
           if (t.receiver.track.kind === 'video' && !t.sender.track) {
             t.direction = 'recvonly';

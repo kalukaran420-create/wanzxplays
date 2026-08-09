@@ -198,40 +198,44 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
   const attachVideoStream = useCallback((node: HTMLVideoElement | null, stream: MediaStream | null) => {
     if (!node) return;
     if (stream) {
-      if (node.srcObject === stream) return;
+      if (node.srcObject !== stream) {
+        node.srcObject = stream;
+      }
       node.defaultMuted = true;
       node.muted = true;
       node.autoplay = true;
       node.playsInline = true;
-      node.srcObject = stream;
-      node.onloadedmetadata = () => {
-        node.play().catch((err) => console.warn('🎥 [VoiceChannelView] Video play warning on metadata:', err));
-      };
-      node.play().then(() => {
-        const vTrack = stream.getVideoTracks()[0];
-        console.log('TEMP-DEBUG RENDER CHECK t0:', {
-          isSharingSender: isSharing,
-          videoWidth: node.videoWidth,
-          videoHeight: node.videoHeight,
-          readyState: node.readyState,
-          paused: node.paused,
-          currentTime_t0: node.currentTime,
-          trackEnabled: vTrack?.enabled,
-          trackMuted: vTrack?.muted,
-          trackReadyState: vTrack?.readyState,
-        });
 
-        setTimeout(() => {
-          console.log('TEMP-DEBUG RENDER CHECK t+1s:', {
-            isSharingSender: isSharing,
-            videoWidth: node.videoWidth,
-            videoHeight: node.videoHeight,
-            readyState: node.readyState,
-            paused: node.paused,
-            currentTime_t1: node.currentTime,
-          });
-        }, 1000);
-      }).catch((err) => console.warn('🎥 [VoiceChannelView] Video play warning:', err));
+      const playPromise = node.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            const vTrack = stream.getVideoTracks()[0];
+            console.log('TEMP-DEBUG RENDER CHECK t0:', {
+              isSharingSender: isSharing,
+              videoWidth: node.videoWidth,
+              videoHeight: node.videoHeight,
+              readyState: node.readyState,
+              paused: node.paused,
+              currentTime_t0: node.currentTime,
+              trackEnabled: vTrack?.enabled,
+              trackMuted: vTrack?.muted,
+              trackReadyState: vTrack?.readyState,
+            });
+
+            setTimeout(() => {
+              console.log('TEMP-DEBUG RENDER CHECK t+1s:', {
+                isSharingSender: isSharing,
+                videoWidth: node.videoWidth,
+                videoHeight: node.videoHeight,
+                readyState: node.readyState,
+                paused: node.paused,
+                currentTime_t1: node.currentTime,
+              });
+            }, 1000);
+          })
+          .catch((err) => console.warn('🎥 [VoiceChannelView] Video play warning:', err));
+      }
     } else {
       node.srcObject = null;
     }

@@ -1,10 +1,55 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useServer } from '../../context/ServerContext';
 import { Crown, ShieldCheck } from 'lucide-react';
 import { UserStatus } from '../../types';
 
 export const MemberSidebar: React.FC = () => {
   const { activeServer } = useServer();
+
+  const MIN_WIDTH = 200;
+  const MAX_WIDTH = 480;
+  const DEFAULT_WIDTH = 240;
+
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    const saved = localStorage.getItem('pulsecord_member_sidebar_width');
+    if (saved) {
+      const parsed = parseInt(saved, 10);
+      if (!isNaN(parsed) && parsed >= MIN_WIDTH && parsed <= MAX_WIDTH) {
+        return parsed;
+      }
+    }
+    return DEFAULT_WIDTH;
+  });
+
+  const [isResizing, setIsResizing] = useState(false);
+
+  const startResizing = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const newWidth = window.innerWidth - e.clientX;
+      const clampedWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, newWidth));
+      setSidebarWidth(clampedWidth);
+      localStorage.setItem('pulsecord_member_sidebar_width', clampedWidth.toString());
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
 
   if (!activeServer || !activeServer.members) return null;
 
@@ -21,7 +66,20 @@ export const MemberSidebar: React.FC = () => {
   const offlineMembers = activeServer.members.filter((m) => m.user?.status === 'offline');
 
   return (
-    <div className="w-60 bg-cyber-panel border-l border-cyber-border flex flex-col select-none flex-shrink-0 z-10">
+    <div
+      style={{ width: `${sidebarWidth}px` }}
+      className={`bg-cyber-panel border-l border-cyber-border flex flex-col select-none flex-shrink-0 z-10 relative ${
+        isResizing ? 'select-none' : ''
+      }`}
+    >
+      {/* Draggable Resize Handle on Left Edge */}
+      <div
+        onMouseDown={startResizing}
+        className={`absolute top-0 left-0 w-1.5 h-full cursor-col-resize hover:bg-cyber-violet/50 transition-colors z-30 ${
+          isResizing ? 'bg-cyber-violet' : ''
+        }`}
+        title="Drag to resize member sidebar"
+      />
       <div className="p-3 text-xs font-extrabold uppercase tracking-wider text-cyber-muted border-b border-cyber-border">
         Members — {activeServer.members.length}
       </div>

@@ -26,7 +26,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    const serverUrl = window.location.hostname === 'localhost' ? 'http://localhost:5000' : '/';
+    const serverUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
     const socketInstance = io(serverUrl, {
       auth: { token },

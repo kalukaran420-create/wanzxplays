@@ -196,7 +196,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
   };
 
   const attachVideoStream = useCallback((node: HTMLVideoElement | null, stream: MediaStream | null) => {
-    console.log('ENTERED attachVideoStream:', { hasNode: !!node, streamId: stream?.id, streamActive: stream?.active, numTracks: stream?.getTracks().length });
+    console.log('ENTERED attachVideoStream:', { isSharing, hasNode: !!node, streamId: stream?.id, streamActive: stream?.active, numTracks: stream?.getTracks().length });
     if (!node) {
       console.log('attachVideoStream EXIT: node is null');
       return;
@@ -217,7 +217,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
           p.then(() => {
             console.log('PLAY RESULT:', 'success');
             setTimeout(() => {
-              console.log('VIDEO DIMENSIONS:', node.videoWidth, node.videoHeight, 'READY STATE:', node.readyState);
+              console.log('VIDEO DIMENSIONS:', node.videoWidth, node.videoHeight, 'READY STATE:', node.readyState, 'IS_SHARING_SENDER:', isSharing);
             }, 2000);
           }).catch((err) => {
             console.log('PLAY RESULT ERROR:', err);
@@ -230,7 +230,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
       console.log('attachVideoStream EXIT: stream is null');
       node.srcObject = null;
     }
-  }, []);
+  }, [isSharing]);
 
   const videoCallbackRef = useCallback(
     (node: HTMLVideoElement | null) => {
@@ -334,7 +334,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
                 muted
                 onLoadedMetadata={(e) => {
                   const v = e.currentTarget;
-                  console.log('JSX ONLOADEDMETADATA FIRED:', v.videoWidth, 'x', v.videoHeight, 'readyState:', v.readyState);
+                  console.log(`JSX ONLOADEDMETADATA FIRED (isSharing=${isSharing}):`, v.videoWidth, 'x', v.videoHeight, 'readyState:', v.readyState);
                   v.play().then(() => {
                     console.log('PLAY RESULT:', 'success');
                     console.log('VIDEO DIMENSIONS:', v.videoWidth, v.videoHeight, 'READY STATE:', v.readyState);
@@ -344,11 +344,11 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
                 }}
                 onCanPlay={(e) => {
                   const v = e.currentTarget;
-                  console.log('JSX ONCANPLAY FIRED:', v.videoWidth, 'x', v.videoHeight);
+                  console.log(`JSX ONCANPLAY FIRED (isSharing=${isSharing}):`, v.videoWidth, 'x', v.videoHeight);
                 }}
                 onPlaying={(e) => {
                   const v = e.currentTarget;
-                  console.log('JSX ONPLAYING FIRED:', v.videoWidth, 'x', v.videoHeight);
+                  console.log(`JSX ONPLAYING FIRED (isSharing=${isSharing}):`, v.videoWidth, 'x', v.videoHeight);
                 }}
                 style={{ minHeight: '380px', width: '100%', height: '100%' }}
                 className="w-full h-full min-h-[380px] object-contain bg-black rounded-2xl"

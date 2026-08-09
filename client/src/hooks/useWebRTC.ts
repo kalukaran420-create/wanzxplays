@@ -52,28 +52,6 @@ export const useWebRTC = (channelId: string | null) => {
     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
   };
 
-  // Helper to apply high bitrate & low-latency parameters to video sender
-  const applyHighBitrateEncoding = (sender: RTCRtpSender) => {
-    try {
-      if (sender.track?.kind === 'video' && sender.getParameters) {
-        const params = sender.getParameters();
-        if (!params.encodings || params.encodings.length === 0) {
-          params.encodings = [{}];
-        }
-        params.encodings[0].maxBitrate = 7000000;
-        params.degradationPreference = 'maintain-framerate';
-
-        sender.setParameters(params).then(() => {
-          console.log('🎥 [WebRTC Pipeline] Set maxBitrate=7,000,000 bps (7 Mbps)');
-        }).catch((err) => {
-          console.warn('🎥 [WebRTC Pipeline] Bitrate setParameters warning:', err);
-        });
-      }
-    } catch (e) {
-      console.warn('🎥 [WebRTC Pipeline] Failed setting maxBitrate parameter:', e);
-    }
-  };
-
   // Helper to create RTCPeerConnection for a specific target socket
   const createPeerConnection = useCallback((targetSocketId: string): RTCPeerConnection => {
     if (peerConnectionsRef.current[targetSocketId]) {
@@ -95,10 +73,8 @@ export const useWebRTC = (channelId: string | null) => {
     // Attach local screen share video stream tracks if presenting
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => {
-        const sender = pc.addTrack(track, localStreamRef.current!);
-        if (track.kind === 'video') {
-          applyHighBitrateEncoding(sender);
-        }
+        console.log(`🎥 [WebRTC Pipeline] Attaching screen video track (${track.label}) to peer ${targetSocketId}`);
+        pc.addTrack(track, localStreamRef.current!);
       });
     }
 
@@ -259,6 +235,7 @@ export const useWebRTC = (channelId: string | null) => {
 
       const videoTrack = stream.getVideoTracks()[0];
       if (videoTrack) {
+        console.log(`🎥 [SENDER DIAGNOSTICS] Screen track acquired: label="${videoTrack.label}", readyState=${videoTrack.readyState}, enabled=${videoTrack.enabled}, muted=${videoTrack.muted}`);
         if ('contentHint' in videoTrack) {
           videoTrack.contentHint = 'detail';
         }
@@ -269,6 +246,8 @@ export const useWebRTC = (channelId: string | null) => {
           frameRate: Math.round(settings.frameRate || 60),
         };
         setStreamStats(actualStats);
+      } else {
+        console.error('🎥 [SENDER ERROR] getDisplayMedia returned stream without video tracks!');
       }
 
       localStreamRef.current = stream;
@@ -290,14 +269,13 @@ export const useWebRTC = (channelId: string | null) => {
             if (existingVideoSender) {
               console.log(`🎥 [WebRTC Pipeline] Replacing video track on existing sender for peer ${targetSocketId}`);
               await existingVideoSender.replaceTrack(videoTrack);
-              applyHighBitrateEncoding(existingVideoSender);
             } else {
               console.log(`🎥 [WebRTC Pipeline] Adding new video track to PC for peer ${targetSocketId}`);
-              const sender = pc.addTrack(videoTrack, stream);
-              applyHighBitrateEncoding(sender);
+              pc.addTrack(videoTrack, stream);
             }
 
             if (pc.signalingState === 'stable') {
+              console.log(`🎥 [WebRTC Pipeline] Creating SDP offer for screen share to ${targetSocketId}`);
               const offer = await pc.createOffer();
               await pc.setLocalDescription(offer);
               socket?.emit('webrtc:offer', {
@@ -312,6 +290,7 @@ export const useWebRTC = (channelId: string | null) => {
 
       if (videoTrack) {
         videoTrack.onended = () => {
+          console.log('🎥 [SENDER DIAGNOSTICS] Screen share video track ended by user');
           stopScreenShare();
         };
       }

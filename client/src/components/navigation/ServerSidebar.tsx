@@ -20,11 +20,11 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
   const { servers, activeServer, selectServer } = useServer();
 
   return (
-    <div className="w-[72px] min-w-[72px] max-w-[72px] bg-cyber-base flex flex-col items-center py-3 space-y-2 select-none flex-shrink-0 border-r border-cyber-border z-20 overflow-x-hidden">
+    <div className="w-[72px] min-w-[72px] max-w-[72px] bg-cyber-base flex flex-col items-center py-3 space-y-2 select-none flex-shrink-0 border-r border-cyber-border z-20">
       {/* App Home Button */}
-      <div className="relative group flex items-center justify-center w-full">
+      <div className="relative group flex items-center justify-center w-12 h-12">
         <div
-          className={`absolute left-0 w-1 bg-gradient-to-b from-cyber-violet to-cyber-cyan rounded-r-full transition-all duration-300 ${
+          className={`absolute -left-3 w-1 bg-gradient-to-b from-cyber-violet to-cyber-cyan rounded-r-full transition-all duration-300 ${
             activeView === 'dm' ? 'h-8 opacity-100 shadow-glow-violet' : 'h-0 opacity-0 group-hover:h-4 group-hover:opacity-70'
           }`}
         />
@@ -42,15 +42,15 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
       <div className="w-8 h-[2px] bg-cyber-border rounded-full my-1" />
 
       {/* Server List */}
-      <div className="flex-1 w-full space-y-2.5 overflow-y-auto overflow-x-hidden no-scrollbar flex flex-col items-center px-2">
+      <div className="flex-1 w-full space-y-2.5 overflow-y-auto no-scrollbar flex flex-col items-center px-2">
         {servers.map((server) => {
           const isActive = activeView === 'server' && activeServer?.id === server.id;
 
           return (
-            <div key={server.id} className="relative group flex items-center justify-center w-full">
+            <div key={server.id} className="relative group flex items-center justify-center w-12 h-12">
               {/* Active Indicator Bar */}
               <div
-                className={`absolute left-0 w-1 bg-gradient-to-b from-cyber-violet to-cyber-cyan rounded-r-full transition-all duration-300 ${
+                className={`absolute -left-3 w-1 bg-gradient-to-b from-cyber-violet to-cyber-cyan rounded-r-full transition-all duration-300 ${
                   isActive
                     ? 'h-8 opacity-100 shadow-glow-violet'
                     : 'h-0 opacity-0 group-hover:h-4 group-hover:opacity-70'
@@ -76,7 +76,7 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
               </button>
 
               {/* Tooltip */}
-              <div className="absolute left-[80px] bg-cyber-input border border-cyber-border text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 whitespace-nowrap z-50 animate-fade-in">
+              <div className="absolute left-16 top-1/2 -translate-y-1/2 bg-cyber-input border border-cyber-border text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 whitespace-nowrap z-50 animate-fade-in">
                 {server.name}
               </div>
             </div>
@@ -84,7 +84,7 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
         })}
 
         {/* Create Server Button inside rail */}
-        <div className="relative group flex items-center justify-center w-full pt-1">
+        <div className="relative group flex items-center justify-center w-12 h-12 pt-1">
           <button
             onClick={onOpenCreateServer}
             className="w-12 h-12 rounded-2xl bg-cyber-panel border border-cyber-border flex items-center justify-center text-cyber-emerald hover:bg-cyber-emerald hover:text-white hover:border-cyber-emerald transition-all duration-300 hover:rounded-xl group-hover:scale-105 shadow-glow-emerald"
@@ -92,14 +92,14 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
           >
             <Plus className="w-5 h-5" />
           </button>
-          <div className="absolute left-[80px] bg-cyber-input border border-cyber-border text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 whitespace-nowrap z-50 animate-fade-in">
+          <div className="absolute left-16 top-1/2 -translate-y-1/2 bg-cyber-input border border-cyber-border text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 whitespace-nowrap z-50 animate-fade-in">
             Create Server
           </div>
         </div>
 
         {/* Explore Servers inside rail */}
         {onOpenExploreServers && (
-          <div className="relative group flex items-center justify-center w-full">
+          <div className="relative group flex items-center justify-center w-12 h-12">
             <button
               onClick={onOpenExploreServers}
               className="w-12 h-12 rounded-2xl bg-cyber-panel border border-cyber-border flex items-center justify-center text-cyber-cyan hover:bg-cyber-cyan hover:text-white hover:border-cyber-cyan transition-all duration-300 hover:rounded-xl group-hover:scale-105 shadow-glow-cyan"
@@ -107,7 +107,7 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
             >
               <Compass className="w-5 h-5" />
             </button>
-            <div className="absolute left-[80px] bg-cyber-input border border-cyber-border text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 whitespace-nowrap z-50 animate-fade-in">
+            <div className="absolute left-16 top-1/2 -translate-y-1/2 bg-cyber-input border border-cyber-border text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 whitespace-nowrap z-50 animate-fade-in">
               Explore Servers
             </div>
           </div>

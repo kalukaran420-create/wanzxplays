@@ -3,6 +3,7 @@ import { useServer } from '../../context/ServerContext';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
 import { ImageCropModal } from './ImageCropModal';
+import { ConfirmModal } from './ConfirmModal';
 import {
   X,
   Shield,
@@ -194,22 +195,41 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({ isOpen
     }
   };
 
-  // 4. KICK MEMBER
-  const handleKickMember = async (memberId: string, username: string) => {
-    if (!confirm(`Are you sure you want to kick @${username} from ${activeServer.name}?`)) {
-      return;
-    }
+  // Confirmation Modal State
+  const [confirmModalConfig, setConfirmModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    onConfirm: () => {},
+  });
 
-    setLoading(true);
-    try {
-      await api.delete(`/servers/${activeServer.id}/members/${memberId}`);
-      await selectServer(activeServer.id);
-      showSuccess(`@${username} has been removed from the server.`);
-    } catch (err: any) {
-      showError(err.response?.data?.error || 'Failed to remove member');
-    } finally {
-      setLoading(false);
-    }
+  // 4. KICK MEMBER
+  const handleKickMember = (memberId: string, username: string) => {
+    setConfirmModalConfig({
+      isOpen: true,
+      title: 'Kick Member',
+      message: `Are you sure you want to kick @${username} from ${activeServer.name}?`,
+      confirmText: 'Kick Member',
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          await api.delete(`/servers/${activeServer.id}/members/${memberId}`);
+          await selectServer(activeServer.id);
+          showSuccess(`@${username} has been removed from the server.`);
+        } catch (err: any) {
+          showError(err.response?.data?.error || 'Failed to remove member');
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
   };
 
   // 5. SAVE CHANNEL EDITS (Rename & Topic)
@@ -233,39 +253,47 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({ isOpen
   };
 
   // 6. DELETE CHANNEL
-  const handleDeleteChannel = async (channelId: string, channelName: string) => {
-    if (!confirm(`Are you sure you want to delete #${channelName}?`)) {
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await api.delete(`/channels/${channelId}`);
-      await selectServer(activeServer.id);
-      showSuccess(`Channel #${channelName} deleted.`);
-    } catch (err: any) {
-      showError(err.response?.data?.error || 'Failed to delete channel');
-    } finally {
-      setLoading(false);
-    }
+  const handleDeleteChannel = (channelId: string, channelName: string) => {
+    setConfirmModalConfig({
+      isOpen: true,
+      title: 'Delete Channel',
+      message: `Are you sure you want to delete #${channelName}? This action cannot be undone.`,
+      confirmText: 'Delete Channel',
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          await api.delete(`/channels/${channelId}`);
+          await selectServer(activeServer.id);
+          showSuccess(`Channel #${channelName} deleted.`);
+        } catch (err: any) {
+          showError(err.response?.data?.error || 'Failed to delete channel');
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
   };
 
   // 7. DELETE SERVER
-  const handleDeleteServer = async () => {
-    if (!confirm(`Are you sure you want to delete "${activeServer.name}"? This action cannot be undone.`)) {
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await api.delete(`/servers/${activeServer.id}`);
-      await refreshServers();
-      onClose();
-    } catch (err: any) {
-      showError(err.response?.data?.error || 'Failed to delete server');
-    } finally {
-      setLoading(false);
-    }
+  const handleDeleteServer = () => {
+    setConfirmModalConfig({
+      isOpen: true,
+      title: 'Delete Server',
+      message: `Are you sure you want to delete "${activeServer.name}"? This action cannot be undone.`,
+      confirmText: 'Delete Server',
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          await api.delete(`/servers/${activeServer.id}`);
+          await refreshServers();
+          onClose();
+        } catch (err: any) {
+          showError(err.response?.data?.error || 'Failed to delete server');
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
   };
 
   return (
@@ -742,6 +770,16 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({ isOpen
         cropType="avatar"
         onClose={() => setCropModalOpen(false)}
         onSave={handleSaveIconCrop}
+      />
+
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        isOpen={confirmModalConfig.isOpen}
+        title={confirmModalConfig.title}
+        message={confirmModalConfig.message}
+        confirmText={confirmModalConfig.confirmText}
+        onConfirm={confirmModalConfig.onConfirm}
+        onClose={() => setConfirmModalConfig((prev) => ({ ...prev, isOpen: false }))}
       />
     </>
   );

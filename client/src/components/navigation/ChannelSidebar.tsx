@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Channel } from '../../types';
 import { VoiceParticipant } from '../../hooks/useWebRTC';
+import { ConfirmModal } from '../modals/ConfirmModal';
 
 interface ChannelSidebarProps {
   onOpenCreateChannel: (categoryId?: string) => void;
@@ -39,6 +40,7 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
   const [collapsedCategories, setCollapsedCategories] = useState<{ [key: string]: boolean }>({});
   const [connectedVoiceChannel, setConnectedVoiceChannel] = useState<Channel | null>(null);
   const [voiceRoomsSummary, setVoiceRoomsSummary] = useState<{ [channelId: string]: VoiceParticipant[] }>({});
+  const [channelToDelete, setChannelToDelete] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     if (!socket) return;
@@ -308,9 +310,7 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (confirm(`Delete channel #${channel.name}?`)) {
-                                deleteChannel(channel.id);
-                              }
+                              setChannelToDelete({ id: channel.id, name: channel.name });
                             }}
                             className="opacity-0 group-hover:opacity-100 p-1 text-cyber-muted hover:text-cyber-rose hover:bg-cyber-rose/10 rounded-md transition-all"
                             title="Delete Channel"
@@ -375,9 +375,7 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (confirm(`Delete channel #${channel.name}?`)) {
-                              deleteChannel(channel.id);
-                            }
+                            setChannelToDelete({ id: channel.id, name: channel.name });
                           }}
                           className="opacity-0 group-hover:opacity-100 p-1 text-cyber-muted hover:text-cyber-rose hover:bg-cyber-rose/10 rounded-md transition-all"
                           title="Delete Channel"
@@ -440,9 +438,7 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (confirm(`Delete channel #${channel.name}?`)) {
-                            deleteChannel(channel.id);
-                          }
+                          setChannelToDelete({ id: channel.id, name: channel.name });
                         }}
                         className="opacity-0 group-hover:opacity-100 p-1 text-cyber-muted hover:text-cyber-rose hover:bg-cyber-rose/10 rounded-md transition-all"
                         title="Delete Channel"
@@ -487,6 +483,20 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
       <UserFooter
         onOpenSettings={onOpenUserSettings}
         connectedVoiceChannel={connectedVoiceChannel}
+      />
+
+      {/* Custom Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!channelToDelete}
+        title="Delete Channel"
+        message={`Are you sure you want to delete #${channelToDelete?.name}? This action cannot be undone.`}
+        confirmText="Delete Channel"
+        onConfirm={() => {
+          if (channelToDelete) {
+            deleteChannel(channelToDelete.id);
+          }
+        }}
+        onClose={() => setChannelToDelete(null)}
       />
     </div>
   );

@@ -77,13 +77,15 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
         {isAuthor && (
           <>
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              className="p-1.5 text-cyber-muted hover:text-cyber-violet hover:bg-white/10 rounded-lg transition-all"
-              title="Edit Message"
-            >
-              <Edit2 className="w-4 h-4" />
-            </button>
+            {Date.now() - new Date(message.createdAt).getTime() < 5 * 60 * 1000 && (
+              <button
+                onClick={() => setIsEditing(!isEditing)}
+                className="p-1.5 text-cyber-muted hover:text-cyber-violet hover:bg-white/10 rounded-lg transition-all"
+                title="Edit Message"
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
+            )}
 
             <button
               onClick={() => onDeleteMessage(message.id)}

@@ -116,6 +116,11 @@ export const editMessage = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: 'Only the message author can edit this message' });
     }
 
+    const fiveMinutesInMs = 5 * 60 * 1000;
+    if (Date.now() - new Date(existingMessage.createdAt).getTime() > fiveMinutesInMs) {
+      return res.status(400).json({ error: 'This message can no longer be edited' });
+    }
+
     const updatedMessage = await prisma.message.update({
       where: { id: messageId },
       data: { content },

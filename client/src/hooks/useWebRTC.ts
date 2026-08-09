@@ -228,6 +228,11 @@ export const useWebRTC = (channelId: string | null) => {
     }
   }, [socket, channelId]);
 
+  const stopScreenShareRef = useRef(stopScreenShare);
+  useEffect(() => {
+    stopScreenShareRef.current = stopScreenShare;
+  }, [stopScreenShare]);
+
   // Request display media & broadcast video stream to all room peers with WebRTC offer renegotiation
   const startScreenShare = useCallback(async () => {
     setErrorMsg(null);
@@ -570,14 +575,12 @@ export const useWebRTC = (channelId: string | null) => {
       socket.off('screen:start', handleScreenStart);
       socket.off('screen:stop', handleScreenStop);
 
-      if (localAudioStreamRef.current) {
-        localAudioStreamRef.current.getTracks().forEach((t) => t.stop());
-        localAudioStreamRef.current = null;
+      // Stop screen share when unmounting or leaving channel
+      if (stopScreenShareRef.current) {
+        stopScreenShareRef.current();
       }
-
-      stopScreenShare();
     };
-  }, [socket, channelId, createPeerConnection, stopScreenShare]);
+  }, [socket, channelId]);
 
   return {
     isSharing,

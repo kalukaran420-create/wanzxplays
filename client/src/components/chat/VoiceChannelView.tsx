@@ -66,8 +66,8 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
     ? remoteStreams[presenterInfo.socketId] || Object.values(remoteStreams)[0]
     : Object.values(remoteStreams)[0];
 
-  const isSomeonePresenting = isSharing || !!presenterInfo || Object.keys(remoteStreams).length > 0;
   const activeStream = isSharing ? localStream : remotePresenterObj?.stream;
+  const isSomeonePresenting = isSharing || (!!activeStream && activeStream.getVideoTracks().length > 0);
   const activePresenterName = isSharing
     ? 'You'
     : presenterInfo?.username || remotePresenterObj?.username || 'Peer Presenter';
@@ -194,7 +194,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
   }, [socket, isSoundboardMuted, soundVolume]);
 
   const formatStatsLabel = () => {
-    if (!streamStats) return 'Connecting...';
+    if (!streamStats) return '1080p @ 60fps Target';
     const resLabel = streamStats.height >= 1080 ? '1080p' : `${streamStats.height}p`;
     return `${resLabel} @ ${streamStats.frameRate}fps (${streamStats.width}x${streamStats.height})`;
   };

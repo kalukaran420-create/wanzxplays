@@ -418,8 +418,6 @@ export const useWebRTC = (channelId: string | null) => {
     const handleOffer = async ({ senderSocketId, senderUser, offer }: { senderSocketId: string; senderUser: { id: string; username: string }; offer: any }) => {
       if (senderUser?.username) {
         peerUsernamesRef.current[senderSocketId] = senderUser.username;
-        presenterInfoRef.current = { username: senderUser.username, socketId: senderSocketId };
-        setPresenterInfo(presenterInfoRef.current);
       }
       const pc = createPeerConnection(senderSocketId);
       try {

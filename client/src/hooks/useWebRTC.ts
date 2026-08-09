@@ -42,6 +42,7 @@ export const useWebRTC = (channelId: string | null) => {
   const presenterInfoRef = useRef<{ username: string; socketId: string } | null>(null);
   const peerUsernamesRef = useRef<{ [socketId: string]: string }>({});
   const roomPeersRef = useRef<string[]>([]);
+  const pendingIceCandidatesRef = useRef<{ [socketId: string]: RTCIceCandidateInit[] }>({});
   const userRef = useRef(user);
 
   useEffect(() => {
@@ -452,6 +453,7 @@ export const useWebRTC = (channelId: string | null) => {
     const handleUserLeft = ({ socketId }: { socketId: string }) => {
       roomPeersRef.current = roomPeersRef.current.filter((id) => id !== socketId);
       delete peerUsernamesRef.current[socketId];
+      delete pendingIceCandidatesRef.current[socketId];
       if (peerConnectionsRef.current[socketId]) {
         peerConnectionsRef.current[socketId].close();
         delete peerConnectionsRef.current[socketId];
@@ -473,6 +475,25 @@ export const useWebRTC = (channelId: string | null) => {
       }
     };
 
+    const drainIceCandidates = async (targetSocketId: string, pc: RTCPeerConnection) => {
+      const queue = pendingIceCandidatesRef.current[targetSocketId];
+      if (queue && queue.length > 0) {
+        console.log(`[ICE-DEBUG] Draining ${queue.length} buffered candidate(s) for ${targetSocketId}`);
+        const candidatesToApply = [...queue];
+        pendingIceCandidatesRef.current[targetSocketId] = [];
+        for (const candidate of candidatesToApply) {
+          if (candidate) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(candidate));
+              console.log(`[ICE-DEBUG] Successfully added buffered ICE candidate for ${targetSocketId}`);
+            } catch (err) {
+              console.error(`[ICE-DEBUG] Error adding buffered ICE candidate for ${targetSocketId}:`, err);
+            }
+          }
+        }
+      }
+    };
+
     const handleOffer = async ({ senderSocketId, senderUser, offer }: { senderSocketId: string; senderUser: { id: string; username: string }; offer: any }) => {
       if (senderUser?.username) {
         peerUsernamesRef.current[senderSocketId] = senderUser.username;
@@ -480,6 +501,7 @@ export const useWebRTC = (channelId: string | null) => {
       const pc = createPeerConnection(senderSocketId);
       try {
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        await drainIceCandidates(senderSocketId, pc);
 
         // Ensure receiver transceiver direction accepts incoming screen video
         pc.getTransceivers().forEach((t) => {
@@ -503,6 +525,7 @@ export const useWebRTC = (channelId: string | null) => {
         if (pc.signalingState === 'have-local-offer') {
           try {
             await pc.setRemoteDescription(new RTCSessionDescription(answer));
+            await drainIceCandidates(senderSocketId, pc);
           } catch (err) {
             console.warn(`🎥 [WebRTC Pipeline] Error setting remote answer:`, err);
           }
@@ -513,14 +536,16 @@ export const useWebRTC = (channelId: string | null) => {
     const handleIceCandidate = async ({ senderSocketId, candidate }: { senderSocketId: string; candidate: any }) => {
       console.log(`[ICE-DEBUG] Candidate received from ${senderSocketId}:`, candidate?.candidate);
       const pc = peerConnectionsRef.current[senderSocketId];
-      if (!pc) {
-        console.warn(`[ICE-DEBUG] DROPPED CANDIDATE: RTCPeerConnection for ${senderSocketId} does not exist yet!`);
+
+      if (!pc || !pc.remoteDescription) {
+        console.log(`[ICE-DEBUG] QUEUED CANDIDATE for ${senderSocketId} (pc ready: ${!!pc}, remoteDesc: ${!!pc?.remoteDescription})`);
+        if (!pendingIceCandidatesRef.current[senderSocketId]) {
+          pendingIceCandidatesRef.current[senderSocketId] = [];
+        }
+        pendingIceCandidatesRef.current[senderSocketId].push(candidate);
         return;
       }
-      if (!pc.remoteDescription) {
-        console.warn(`[ICE-DEBUG] DROPPED CANDIDATE: pc.remoteDescription is NULL for ${senderSocketId}! Signaling state: ${pc.signalingState}`);
-        return;
-      }
+
       try {
         await pc.addIceCandidate(new RTCIceCandidate(candidate));
         console.log(`[ICE-DEBUG] Successfully added ICE candidate from ${senderSocketId}`);

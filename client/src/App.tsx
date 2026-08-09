@@ -101,7 +101,11 @@ const MainLayout: React.FC = () => {
       )}
 
       {/* Modals */}
-      <CreateServerModal isOpen={isCreateServerOpen} onClose={() => setIsCreateServerOpen(false)} />
+      <CreateServerModal
+        isOpen={isCreateServerOpen}
+        onClose={() => setIsCreateServerOpen(false)}
+        onOpenJoinServer={() => setIsJoinServerOpen(true)}
+      />
       <JoinServerModal isOpen={isJoinServerOpen} onClose={() => setIsJoinServerOpen(false)} />
       <CreateChannelModal
         isOpen={isCreateChannelOpen}

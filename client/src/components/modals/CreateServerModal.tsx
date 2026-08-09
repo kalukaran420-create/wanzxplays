@@ -5,9 +5,10 @@ import { X, Server as ServerIcon } from 'lucide-react';
 interface CreateServerModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpenJoinServer?: () => void;
 }
 
-export const CreateServerModal: React.FC<CreateServerModalProps> = ({ isOpen, onClose }) => {
+export const CreateServerModal: React.FC<CreateServerModalProps> = ({ isOpen, onClose, onOpenJoinServer }) => {
   const { createServer } = useServer();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -105,13 +106,26 @@ export const CreateServerModal: React.FC<CreateServerModalProps> = ({ isOpen, on
           </div>
 
           <div className="pt-3 flex justify-between items-center bg-discord-tertiary/50 -mx-6 -mb-6 p-4 border-t border-black/20">
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-xs font-semibold text-discord-text hover:underline"
-            >
-              Back
-            </button>
+            {onOpenJoinServer ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenJoinServer();
+                }}
+                className="text-xs font-semibold text-discord-brand hover:underline"
+              >
+                Have an invite? Join a server
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onClose}
+                className="text-xs font-semibold text-discord-text hover:underline"
+              >
+                Back
+              </button>
+            )}
             <button
               type="submit"
               disabled={loading || !name.trim()}

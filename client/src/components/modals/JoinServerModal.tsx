@@ -17,13 +17,17 @@ export const JoinServerModal: React.FC<JoinServerModalProps> = ({ isOpen, onClos
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inviteCode.trim()) return;
+    const raw = inviteCode.trim();
+    if (!raw) return;
+
+    // Handle full invite URLs as well as raw invite codes
+    const code = raw.includes('/join/') ? raw.split('/join/').pop()?.trim() || raw : raw;
 
     setLoading(true);
     setError('');
 
     try {
-      await joinServer(inviteCode.trim());
+      await joinServer(code);
       setInviteCode('');
       onClose();
     } catch (err: any) {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useServer } from '../../context/ServerContext';
-import { Plus, Compass, Zap } from 'lucide-react';
+import { Plus, Compass, Zap, LogIn } from 'lucide-react';
 
 interface ServerSidebarProps {
   onOpenCreateServer: () => void;
@@ -98,6 +98,22 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
             Create Server
           </div>
         </div>
+
+        {/* Join Server Button inside rail */}
+        {onOpenJoinServer && (
+          <div className="relative group flex items-center justify-center w-12 h-12">
+            <button
+              onClick={onOpenJoinServer}
+              className="w-12 h-12 rounded-2xl bg-cyber-panel border border-cyber-border flex items-center justify-center text-cyber-violet hover:bg-cyber-violet hover:text-white hover:border-cyber-violet transition-all duration-300 hover:rounded-xl group-hover:scale-105 hover:shadow-glow-violet"
+              title="Join a Server"
+            >
+              <LogIn className="w-5 h-5" />
+            </button>
+            <div className="absolute left-16 top-1/2 -translate-y-1/2 bg-cyber-input border border-cyber-border text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-2xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50 animate-fade-in">
+              Join Server
+            </div>
+          </div>
+        )}
 
         {/* Explore Servers inside rail */}
         {onOpenExploreServers && (

@@ -21,8 +21,8 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
-// All origins allowed to access this backend
-const allowedOrigins = [
+// Exact origins always allowed
+const allowedOriginsList = [
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:3000',
@@ -30,10 +30,41 @@ const allowedOrigins = [
   ...(process.env.CLIENT_URL ? [process.env.CLIENT_URL] : []),
 ];
 
+// Also allow any Vercel preview deployment for this project
+// e.g. https://wanzxplays-client-abc123-wanzxplays.vercel.app
+const allowedOriginPatterns = [
+  /^https:\/\/wanzxplays(-[a-z0-9-]+)?\.vercel\.app$/,
+];
+
+const isOriginAllowed = (origin: string): boolean => {
+  if (allowedOriginsList.includes(origin)) return true;
+  return allowedOriginPatterns.some((pattern) => pattern.test(origin));
+};
+
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (curl, Postman, server-to-server)
+    if (!origin) return callback(null, true);
+    if (isOriginAllowed(origin)) {
+      callback(null, true);
+    } else {
+      // Return null, false — NOT new Error() — so Express returns a clean
+      // CORS rejection (no Access-Control-Allow-Origin header) instead of 500
+      callback(null, false);
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
 // Socket.io initialization with CORS
 export const io = new SocketIOServer(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin || isOriginAllowed(origin)) return callback(null, true);
+      callback(null, false);
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     credentials: true,
   },
@@ -42,25 +73,10 @@ export const io = new SocketIOServer(server, {
 // Setup Socket.io real-time handlers
 setupSocketHandlers(io);
 
-// Middleware
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error(`CORS: origin '${origin}' not allowed`));
-      }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  })
-);
-// Handle OPTIONS preflight for all routes
-app.options('*', cors());
+// Apply CORS middleware with shared corsOptions
+app.use(cors(corsOptions));
+// Handle OPTIONS preflight using the SAME corsOptions (not a bare cors())
+app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

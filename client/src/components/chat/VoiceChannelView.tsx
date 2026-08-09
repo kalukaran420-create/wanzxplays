@@ -220,6 +220,51 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
           });
         }
       }
+
+      // TEMP-DEBUG Diagnostics: DOM video element count
+      console.log('🎥 [TEMP-DEBUG] Total <video> elements in DOM:', document.querySelectorAll('video').length);
+
+      // TEMP-DEBUG Diagnostics: Computed CSS styles of video node and 3 parent levels
+      try {
+        let curr: HTMLElement | null = node;
+        for (let depth = 0; depth <= 3 && curr; depth++) {
+          const style = window.getComputedStyle(curr);
+          console.log(`🎥 [TEMP-DEBUG STYLES] Depth ${depth} (${curr.tagName.toLowerCase()}.${curr.className}):`, {
+            opacity: style.opacity,
+            visibility: style.visibility,
+            display: style.display,
+            backgroundColor: style.backgroundColor,
+            zIndex: style.zIndex,
+            width: style.width,
+            height: style.height,
+          });
+          curr = curr.parentElement;
+        }
+      } catch (err) {
+        console.warn('🎥 [TEMP-DEBUG STYLES] Error checking styles:', err);
+      }
+
+      // TEMP-DEBUG Diagnostics: 5-second tick metric logger
+      let intervalCount = 0;
+      const intervalId = setInterval(() => {
+        intervalCount++;
+        const videoTrack = stream.getVideoTracks()[0];
+        console.log(`🎥 [TEMP-DEBUG METRICS] Tick ${intervalCount}/5:`, {
+          readyState: node.readyState,
+          videoWidth: node.videoWidth,
+          videoHeight: node.videoHeight,
+          currentTime: node.currentTime,
+          paused: node.paused,
+          trackKind: videoTrack?.kind,
+          trackReadyState: videoTrack?.readyState,
+          trackEnabled: videoTrack?.enabled,
+          trackMuted: videoTrack?.muted,
+        });
+
+        if (intervalCount >= 5) {
+          clearInterval(intervalId);
+        }
+      }, 1000);
     } else {
       node.srcObject = null;
     }

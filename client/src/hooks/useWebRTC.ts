@@ -102,14 +102,12 @@ export const useWebRTC = (channelId: string | null) => {
         }));
       }
 
-      // Handle remote video stream for screen share — construct fresh MediaStream for reliable React state updates
+      // Handle remote video stream for screen share
       if (event.track.kind === 'video') {
         const peerUsername = peerUsernamesRef.current[targetSocketId] || presenterInfoRef.current?.username || 'Peer Presenter';
-        const freshVideoStream = new MediaStream([event.track]);
+        const stream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
 
-        console.log(`🎥 [WebRTC Pipeline] Constructed fresh MediaStream (${freshVideoStream.id}) for remote video track (${event.track.id})`);
-
-        const vTrack = freshVideoStream.getVideoTracks()[0];
+        const vTrack = stream.getVideoTracks()[0];
         if (vTrack) {
           const settings = vTrack.getSettings();
           setStreamStats({
@@ -122,7 +120,7 @@ export const useWebRTC = (channelId: string | null) => {
         setRemoteStreams((prev) => ({
           ...prev,
           [targetSocketId]: {
-            stream: freshVideoStream,
+            stream,
             username: peerUsername,
           },
         }));

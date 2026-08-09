@@ -206,40 +206,25 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
       node.autoplay = true;
       node.playsInline = true;
 
-      const playPromise = node.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            const vTrack = stream.getVideoTracks()[0];
-            console.log('TEMP-DEBUG RENDER CHECK t0:', {
-              isSharingSender: isSharing,
-              videoWidth: node.videoWidth,
-              videoHeight: node.videoHeight,
-              readyState: node.readyState,
-              paused: node.paused,
-              currentTime_t0: node.currentTime,
-              trackEnabled: vTrack?.enabled,
-              trackMuted: vTrack?.muted,
-              trackReadyState: vTrack?.readyState,
+      // Only attempt play if paused or unstarted to prevent in-flight AbortError
+      if (node.paused) {
+        const playPromise = node.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              console.log('🎥 [VoiceChannelView] Video play resolved successfully!');
+            })
+            .catch((err) => {
+              if (err.name !== 'AbortError') {
+                console.warn('🎥 [VoiceChannelView] Video play warning:', err);
+              }
             });
-
-            setTimeout(() => {
-              console.log('TEMP-DEBUG RENDER CHECK t+1s:', {
-                isSharingSender: isSharing,
-                videoWidth: node.videoWidth,
-                videoHeight: node.videoHeight,
-                readyState: node.readyState,
-                paused: node.paused,
-                currentTime_t1: node.currentTime,
-              });
-            }, 1000);
-          })
-          .catch((err) => console.warn('🎥 [VoiceChannelView] Video play warning:', err));
+        }
       }
     } else {
       node.srcObject = null;
     }
-  }, [isSharing]);
+  }, []);
 
   const videoCallbackRef = useCallback(
     (node: HTMLVideoElement | null) => {
@@ -264,6 +249,8 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
       }
     }
   };
+
+  const videoKey = isSharing ? 'local-screen-video' : (presenterInfo?.socketId ? `remote-screen-${presenterInfo.socketId}` : 'remote-screen-video');
 
   return (
     <div className="flex-1 bg-cyber-chat flex flex-col h-full overflow-hidden select-none relative">
@@ -334,8 +321,9 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
                   : 'relative w-full flex-1 min-h-[420px] aspect-video flex flex-col items-center justify-center rounded-3xl overflow-hidden shadow-2xl border border-cyber-cyan/30 shadow-glow-cyan group bg-black'
               }`}
             >
-              {/* Live Video Frame */}
+              {/* Live Video Frame with Stable Key */}
               <video
+                key={videoKey}
                 ref={videoCallbackRef}
                 autoPlay
                 playsInline

@@ -31,8 +31,8 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
 
         <button
           onClick={() => setActiveView?.('dm')}
-          className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-glow-violet transition-all duration-300 hover:rounded-xl group-hover:scale-105 ${
-            activeView === 'dm' ? 'bg-aurora-gradient rounded-xl' : 'bg-cyber-panel border border-white/5 text-cyber-text hover:bg-cyber-hover'
+          className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white transition-all duration-300 hover:rounded-xl group-hover:scale-105 ${
+            activeView === 'dm' ? 'bg-aurora-gradient rounded-xl shadow-glow-violet' : 'bg-cyber-panel border border-white/5 text-cyber-text hover:bg-cyber-hover'
           }`}
         >
           <Zap className="w-6 h-6 fill-white stroke-none" />
@@ -87,7 +87,7 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
         <div className="relative group flex items-center justify-center w-12 h-12 pt-1">
           <button
             onClick={onOpenCreateServer}
-            className="w-12 h-12 rounded-2xl bg-cyber-panel border border-cyber-border flex items-center justify-center text-cyber-emerald hover:bg-cyber-emerald hover:text-white hover:border-cyber-emerald transition-all duration-300 hover:rounded-xl group-hover:scale-105 shadow-glow-emerald"
+            className="w-12 h-12 rounded-2xl bg-cyber-panel border border-cyber-border flex items-center justify-center text-cyber-emerald hover:bg-cyber-emerald hover:text-white hover:border-cyber-emerald transition-all duration-300 hover:rounded-xl group-hover:scale-105 hover:shadow-glow-emerald"
             title="Create a Server"
           >
             <Plus className="w-5 h-5" />
@@ -102,7 +102,7 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
           <div className="relative group flex items-center justify-center w-12 h-12">
             <button
               onClick={onOpenExploreServers}
-              className="w-12 h-12 rounded-2xl bg-cyber-panel border border-cyber-border flex items-center justify-center text-cyber-cyan hover:bg-cyber-cyan hover:text-white hover:border-cyber-cyan transition-all duration-300 hover:rounded-xl group-hover:scale-105 shadow-glow-cyan"
+              className="w-12 h-12 rounded-2xl bg-cyber-panel border border-cyber-border flex items-center justify-center text-cyber-cyan hover:bg-cyber-cyan hover:text-white hover:border-cyber-cyan transition-all duration-300 hover:rounded-xl group-hover:scale-105 hover:shadow-glow-cyan"
               title="Explore Public Servers"
             >
               <Compass className="w-5 h-5" />

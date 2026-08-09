@@ -195,8 +195,9 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
 
             {/* Presenter Label Header */}
             <div className="absolute top-4 left-4 z-10 flex items-center space-x-2 bg-black/70 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/10 text-xs font-bold text-white shadow-2xl">
-              <span className="w-2.5 h-2.5 rounded-full bg-cyber-rose animate-pulse" />
-              <span>{activePresenterName} is sharing their screen</span>
+              <span>
+                {isSharing ? 'You are sharing your screen' : `${activePresenterName} is sharing their screen`}
+              </span>
               <span className="text-[10px] text-cyber-cyan font-mono uppercase bg-cyber-cyan/10 border border-cyber-cyan/30 px-2 py-0.5 rounded-md">
                 LIVE 7 Mbps • DETAIL
               </span>

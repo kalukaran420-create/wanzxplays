@@ -26,6 +26,7 @@ export const useWebRTC = (channelId: string | null) => {
   const peerConnectionsRef = useRef<PeerConnectionMap>({});
   const localStreamRef = useRef<MediaStream | null>(null);
   const presenterInfoRef = useRef<{ username: string; socketId: string } | null>(null);
+  const roomPeersRef = useRef<string[]>([]);
 
   const STUN_SERVERS: RTCConfiguration = {
     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
@@ -211,14 +212,16 @@ export const useWebRTC = (channelId: string | null) => {
       presenterInfoRef.current = info;
       setPresenterInfo(info);
 
-      // Apply 7 Mbps bitrate setting to any existing peer senders
-      Object.values(peerConnectionsRef.current).forEach((pc) => {
-        const senders = pc.getSenders();
-        senders.forEach((sender) => {
-          if (sender.track?.kind === 'video') {
-            applyHighBitrateEncoding(sender);
-          }
-        });
+      // Create peer connections & offers for all existing room peers
+      roomPeersRef.current.forEach((targetSocketId) => {
+        if (targetSocketId && targetSocketId !== socket?.id) {
+          console.log(`🎥 [WebRTC] Creating WebRTC offer for room peer: ${targetSocketId}`);
+          const pc = createPeerConnection(targetSocketId);
+          pc.createOffer().then((offer) => {
+            pc.setLocalDescription(offer);
+            socket?.emit('webrtc:offer', { targetSocketId, offer });
+          });
+        }
       });
 
       // Handle user clicking native browser "Stop Sharing" floating bar
@@ -240,7 +243,7 @@ export const useWebRTC = (channelId: string | null) => {
         setErrorMsg('Failed to start screen share: ' + (err.message || 'Unknown error'));
       }
     }
-  }, [socket, channelId, user, stopScreenShare]);
+  }, [socket, channelId, user, createPeerConnection, stopScreenShare]);
 
   // Handle voice channel join and socket signaling events
   useEffect(() => {
@@ -250,19 +253,44 @@ export const useWebRTC = (channelId: string | null) => {
     socket.emit('voice:join', { channelId });
 
     // Handle existing peers in the room
-    const handleVoicePeers = ({ existingSockets }: { existingSockets: string[] }) => {
-      console.log('🎥 [WebRTC] Voice peers currently in room:', existingSockets);
+    const handleVoicePeers = ({ peers }: { peers: string[] }) => {
+      console.log('🎥 [WebRTC] Voice peers currently in room:', peers);
+      roomPeersRef.current = peers || [];
     };
 
     // Handle new user joining room
     const handleUserJoined = ({ socketId, user: peerUser }: { socketId: string; user: { username: string } }) => {
       console.log(`🎥 [WebRTC] Peer ${peerUser.username} (${socketId}) joined room`);
+      if (!roomPeersRef.current.includes(socketId)) {
+        roomPeersRef.current.push(socketId);
+      }
+
       if (localStreamRef.current) {
         const pc = createPeerConnection(socketId);
         pc.createOffer().then((offer) => {
           pc.setLocalDescription(offer);
           socket.emit('webrtc:offer', { targetSocketId: socketId, offer });
         });
+      }
+    };
+
+    // Handle user leaving room
+    const handleUserLeft = ({ socketId }: { socketId: string }) => {
+      console.log(`🎥 [WebRTC] Peer ${socketId} left room`);
+      roomPeersRef.current = roomPeersRef.current.filter((id) => id !== socketId);
+      if (peerConnectionsRef.current[socketId]) {
+        peerConnectionsRef.current[socketId].close();
+        delete peerConnectionsRef.current[socketId];
+      }
+      setRemoteStreams((prev) => {
+        const updated = { ...prev };
+        delete updated[socketId];
+        return updated;
+      });
+      if (presenterInfoRef.current?.socketId === socketId) {
+        presenterInfoRef.current = null;
+        setPresenterInfo(null);
+        setStreamStats(null);
       }
     };
 
@@ -299,7 +327,7 @@ export const useWebRTC = (channelId: string | null) => {
 
     // Handle screen share start/stop notifications
     const handleScreenStart = ({ presenterSocketId, presenterUser }: { presenterSocketId: string; presenterUser: { username: string } }) => {
-      console.log(`🎥 [WebRTC] Screen share started by ${presenterUser.username}`);
+      console.log(`🎥 [WebRTC] Screen share started by ${presenterUser.username} (${presenterSocketId})`);
       presenterInfoRef.current = { username: presenterUser.username, socketId: presenterSocketId };
       setPresenterInfo(presenterInfoRef.current);
     };
@@ -320,6 +348,7 @@ export const useWebRTC = (channelId: string | null) => {
 
     socket.on('voice:peers', handleVoicePeers);
     socket.on('voice:user-joined', handleUserJoined);
+    socket.on('voice:user-left', handleUserLeft);
     socket.on('webrtc:offer', handleOffer);
     socket.on('webrtc:answer', handleAnswer);
     socket.on('webrtc:ice-candidate', handleIceCandidate);
@@ -330,6 +359,7 @@ export const useWebRTC = (channelId: string | null) => {
       socket.emit('voice:leave', { channelId });
       socket.off('voice:peers', handleVoicePeers);
       socket.off('voice:user-joined', handleUserJoined);
+      socket.off('voice:user-left', handleUserLeft);
       socket.off('webrtc:offer', handleOffer);
       socket.off('webrtc:answer', handleAnswer);
       socket.off('webrtc:ice-candidate', handleIceCandidate);

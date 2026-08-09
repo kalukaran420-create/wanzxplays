@@ -18,6 +18,8 @@
     "start": "node server/dist/index.js"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "prisma": "^5.10.2",
+    "typescript": "^5.3.3"
   }
 }

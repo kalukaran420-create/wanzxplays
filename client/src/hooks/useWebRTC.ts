@@ -12,6 +12,17 @@ export interface StreamStats {
   frameRate: number;
 }
 
+export interface VoiceParticipant {
+  socketId: string;
+  userId: string;
+  username: string;
+  displayName: string;
+  avatar: string;
+  isMuted?: boolean;
+  isDeafened?: boolean;
+  isSpeaking?: boolean;
+}
+
 export const useWebRTC = (channelId: string | null) => {
   const { socket } = useSocket();
   const { user } = useAuth();
@@ -22,6 +33,7 @@ export const useWebRTC = (channelId: string | null) => {
   const [presenterInfo, setPresenterInfo] = useState<{ username: string; socketId: string } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [streamStats, setStreamStats] = useState<StreamStats | null>(null);
+  const [participants, setParticipants] = useState<VoiceParticipant[]>([]);
 
   const peerConnectionsRef = useRef<PeerConnectionMap>({});
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -250,16 +262,36 @@ export const useWebRTC = (channelId: string | null) => {
     if (!socket || !channelId) return;
 
     console.log(`🎥 [WebRTC] Joining voice room for channel ${channelId}`);
-    socket.emit('voice:join', { channelId });
+    socket.emit('voice:join', {
+      channelId,
+      userProfile: {
+        displayName: user?.displayName || user?.username,
+        avatar: user?.avatar,
+      },
+    });
 
-    // Handle existing peers in the room
-    const handleVoicePeers = ({ peers }: { peers: string[] }) => {
+    // Handle existing peers and initial participants
+    const handleVoicePeers = ({ peers, participants: initialParticipants }: { peers: string[]; participants?: VoiceParticipant[] }) => {
       console.log('🎥 [WebRTC] Voice peers currently in room:', peers);
       roomPeersRef.current = peers || [];
+      if (initialParticipants) {
+        setParticipants(initialParticipants);
+      }
+    };
+
+    const handleVoiceParticipants = (updatedParticipants: VoiceParticipant[]) => {
+      console.log('👥 [WebRTC] Voice channel participants list updated:', updatedParticipants);
+      setParticipants(updatedParticipants);
+    };
+
+    const handleVoiceStateUpdate = (update: { socketId: string; isMuted?: boolean; isDeafened?: boolean; isSpeaking?: boolean }) => {
+      setParticipants((prev) =>
+        prev.map((p) => (p.socketId === update.socketId ? { ...p, ...update } : p))
+      );
     };
 
     // Handle new user joining room
-    const handleUserJoined = ({ socketId, user: peerUser }: { socketId: string; user: { username: string } }) => {
+    const handleUserJoined = ({ socketId, user: peerUser }: { socketId: string; user: { username: string; displayName?: string; avatar?: string } }) => {
       console.log(`🎥 [WebRTC] Peer ${peerUser.username} (${socketId}) joined room`);
       if (!roomPeersRef.current.includes(socketId)) {
         roomPeersRef.current.push(socketId);
@@ -347,6 +379,8 @@ export const useWebRTC = (channelId: string | null) => {
     };
 
     socket.on('voice:peers', handleVoicePeers);
+    socket.on('voice:participants', handleVoiceParticipants);
+    socket.on('voice:state-update', handleVoiceStateUpdate);
     socket.on('voice:user-joined', handleUserJoined);
     socket.on('voice:user-left', handleUserLeft);
     socket.on('webrtc:offer', handleOffer);
@@ -358,6 +392,8 @@ export const useWebRTC = (channelId: string | null) => {
     return () => {
       socket.emit('voice:leave', { channelId });
       socket.off('voice:peers', handleVoicePeers);
+      socket.off('voice:participants', handleVoiceParticipants);
+      socket.off('voice:state-update', handleVoiceStateUpdate);
       socket.off('voice:user-joined', handleUserJoined);
       socket.off('voice:user-left', handleUserLeft);
       socket.off('webrtc:offer', handleOffer);
@@ -368,7 +404,7 @@ export const useWebRTC = (channelId: string | null) => {
 
       stopScreenShare();
     };
-  }, [socket, channelId, createPeerConnection, stopScreenShare]);
+  }, [socket, channelId, user, createPeerConnection, stopScreenShare]);
 
   return {
     isSharing,
@@ -377,6 +413,7 @@ export const useWebRTC = (channelId: string | null) => {
     presenterInfo,
     errorMsg,
     streamStats,
+    participants,
     startScreenShare,
     stopScreenShare,
   };

@@ -1,5 +1,6 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
+import { prisma } from '../utils/prisma';
 
 interface AuthenticatedSocket extends Socket {
   user?: {
@@ -7,6 +8,20 @@ interface AuthenticatedSocket extends Socket {
     username: string;
   };
 }
+
+interface VoiceParticipant {
+  socketId: string;
+  userId: string;
+  username: string;
+  displayName: string;
+  avatar: string;
+  isMuted: boolean;
+  isDeafened: boolean;
+  isSpeaking: boolean;
+  channelId: string;
+}
+
+const voiceRooms: { [roomName: string]: { [socketId: string]: VoiceParticipant } } = {};
 
 export function setupSocketHandlers(io: SocketIOServer) {
   // Middleware to authenticate socket connections
@@ -67,26 +82,75 @@ export function setupSocketHandlers(io: SocketIOServer) {
       console.log(`[Socket] ${user.username} left dm:${conversationId}`);
     });
 
-    // Voice Channel WebRTC Signaling
-    socket.on('voice:join', ({ channelId }: { channelId: string }) => {
+    // Helper to clean socket from voice rooms
+    const removeSocketFromVoiceRooms = (targetSocketId: string) => {
+      Object.keys(voiceRooms).forEach((roomName) => {
+        if (voiceRooms[roomName] && voiceRooms[roomName][targetSocketId]) {
+          const p = voiceRooms[roomName][targetSocketId];
+          delete voiceRooms[roomName][targetSocketId];
+
+          const remainingList = Object.values(voiceRooms[roomName]);
+          io.to(roomName).emit('voice:participants', remainingList);
+          socket.to(roomName).emit('voice:user-left', {
+            socketId: targetSocketId,
+            userId: p.userId,
+          });
+
+          if (remainingList.length === 0) {
+            delete voiceRooms[roomName];
+          }
+        }
+      });
+    };
+
+    // Voice Channel WebRTC Signaling & Real-time Participant State
+    socket.on('voice:join', async ({ channelId, userProfile }: { channelId: string; userProfile?: { displayName?: string; avatar?: string } }) => {
       const roomName = `voice:${channelId}`;
       socket.join(roomName);
+
+      if (!voiceRooms[roomName]) {
+        voiceRooms[roomName] = {};
+      }
+
+      // Fetch latest profile from DB or fallback
+      const dbUser = await prisma.user.findUnique({
+        where: { id: user.userId },
+        select: { displayName: true, avatar: true },
+      }).catch(() => null);
+
+      const participant: VoiceParticipant = {
+        socketId: socket.id,
+        userId: user.userId,
+        username: user.username,
+        displayName: dbUser?.displayName || userProfile?.displayName || user.username,
+        avatar: dbUser?.avatar || userProfile?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(user.username)}`,
+        isMuted: false,
+        isDeafened: false,
+        isSpeaking: false,
+        channelId,
+      };
+
+      voiceRooms[roomName][socket.id] = participant;
 
       // Get existing peers in the room
       const room = io.sockets.adapter.rooms.get(roomName);
       const existingPeers = room ? Array.from(room).filter((id) => id !== socket.id) : [];
 
-      console.log(`[Voice] ${user.username} (${socket.id}) joined ${roomName}. Peers in room:`, existingPeers);
+      console.log(`[Voice] ${user.username} (${socket.id}) joined ${roomName}. Total participants: ${Object.keys(voiceRooms[roomName]).length}`);
 
-      // Notify caller of existing peers
+      // Notify caller of existing peers and complete participant list
       socket.emit('voice:peers', {
         peers: existingPeers,
+        participants: Object.values(voiceRooms[roomName]),
       });
+
+      // Broadcast complete room participant list to all sockets in room
+      io.to(roomName).emit('voice:participants', Object.values(voiceRooms[roomName]));
 
       // Notify existing peers that a new user joined
       socket.to(roomName).emit('voice:user-joined', {
         socketId: socket.id,
-        user: { id: user.userId, username: user.username },
+        user: { id: user.userId, username: user.username, displayName: participant.displayName, avatar: participant.avatar },
       });
     });
 
@@ -94,11 +158,30 @@ export function setupSocketHandlers(io: SocketIOServer) {
       const roomName = `voice:${channelId}`;
       socket.leave(roomName);
       console.log(`[Voice] ${user.username} left ${roomName}`);
+      removeSocketFromVoiceRooms(socket.id);
+    });
 
-      socket.to(roomName).emit('voice:user-left', {
-        socketId: socket.id,
-        userId: user.userId,
-      });
+    socket.on('voice:state-update', ({ channelId, isMuted, isDeafened, isSpeaking }: {
+      channelId: string;
+      isMuted?: boolean;
+      isDeafened?: boolean;
+      isSpeaking?: boolean;
+    }) => {
+      const roomName = `voice:${channelId}`;
+      if (voiceRooms[roomName] && voiceRooms[roomName][socket.id]) {
+        const p = voiceRooms[roomName][socket.id];
+        if (isMuted !== undefined) p.isMuted = isMuted;
+        if (isDeafened !== undefined) p.isDeafened = isDeafened;
+        if (isSpeaking !== undefined) p.isSpeaking = isSpeaking;
+
+        io.to(roomName).emit('voice:state-update', {
+          socketId: socket.id,
+          userId: p.userId,
+          isMuted: p.isMuted,
+          isDeafened: p.isDeafened,
+          isSpeaking: p.isSpeaking,
+        });
+      }
     });
 
     socket.on('webrtc:offer', ({ targetSocketId, offer }: { targetSocketId: string; offer: any }) => {
@@ -179,6 +262,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
     // Disconnect
     socket.on('disconnect', () => {
       console.log(`[Socket] User disconnected: ${user.username} (${socket.id})`);
+      removeSocketFromVoiceRooms(socket.id);
     });
   });
 }

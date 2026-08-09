@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Channel } from '../../types';
 import { useWebRTC } from '../../hooks/useWebRTC';
 import { useSocket } from '../../context/SocketContext';
+import { useAuth } from '../../context/AuthContext';
 import { SoundboardModal } from '../voice/SoundboardModal';
 import { playSoundEffect, setSoundboardVolume } from '../../utils/soundSynthesizer';
 import {
@@ -14,6 +15,7 @@ import {
   AlertCircle,
   RefreshCw,
   Radio,
+  Headphones,
 } from 'lucide-react';
 
 interface VoiceChannelViewProps {
@@ -29,6 +31,7 @@ interface SoundToast {
 
 export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) => {
   const { socket } = useSocket();
+  const { user } = useAuth();
   const {
     isSharing,
     localStream,
@@ -36,11 +39,13 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
     presenterInfo,
     errorMsg,
     streamStats,
+    participants,
     startScreenShare,
     stopScreenShare,
   } = useWebRTC(channel.id);
 
   const [isMuted, setIsMuted] = useState(false);
+  const [isDeafened, setIsDeafened] = useState(false);
   const [isSoundboardOpen, setIsSoundboardOpen] = useState(false);
   const [soundVolume, setSoundVolumeState] = useState<number>(() => {
     const saved = localStorage.getItem('pulsecord_soundboard_volume');
@@ -48,8 +53,10 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
   });
   const [isSoundboardMuted, setIsSoundboardMuted] = useState(false);
   const [soundToast, setSoundToast] = useState<SoundToast | null>(null);
+  const [isLocalSpeaking, setIsLocalSpeaking] = useState(false);
 
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
+  const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const activeStream = isSharing ? localStream : Object.values(remoteStreams)[0]?.stream;
   const activePresenterName = isSharing ? 'You' : presenterInfo?.username || 'Peer Presenter';
@@ -66,6 +73,75 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
     setSoundboardVolume(muted ? 0 : soundVolume);
   };
 
+  // Real-time local mic volume audio analyzer for speaking detection
+  useEffect(() => {
+    if (!socket || !channel.id || isMuted || isDeafened) {
+      setIsLocalSpeaking(false);
+      socket?.emit('voice:state-update', { channelId: channel.id, isMuted, isDeafened, isSpeaking: false });
+      return;
+    }
+
+    let micStream: MediaStream | null = null;
+    let animId: number;
+    let audioCtx: AudioContext | null = null;
+
+    const startAudioAnalyser = async () => {
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        const source = audioCtx.createMediaStreamSource(micStream);
+        source.connect(analyser);
+
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        const detectSpeaking = () => {
+          analyser.getByteFrequencyData(dataArray);
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) {
+            sum += dataArray[i];
+          }
+          const average = sum / dataArray.length;
+
+          if (average > 10) {
+            setIsLocalSpeaking(true);
+            if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
+            speakingTimeoutRef.current = setTimeout(() => {
+              setIsLocalSpeaking(false);
+            }, 350);
+          }
+
+          animId = requestAnimationFrame(detectSpeaking);
+        };
+
+        detectSpeaking();
+      } catch (err) {
+        console.warn('🎙️ [VoiceChannelView] Mic audio analyser unavailable:', err);
+      }
+    };
+
+    startAudioAnalyser();
+
+    return () => {
+      if (animId) cancelAnimationFrame(animId);
+      if (audioCtx) audioCtx.close();
+      if (micStream) micStream.getTracks().forEach((t) => t.stop());
+    };
+  }, [socket, channel.id, isMuted, isDeafened]);
+
+  // Sync mute, deafen & speaking state changes to socket room
+  useEffect(() => {
+    if (socket && channel.id) {
+      socket.emit('voice:state-update', {
+        channelId: channel.id,
+        isMuted,
+        isDeafened,
+        isSpeaking: isLocalSpeaking,
+      });
+    }
+  }, [socket, channel.id, isMuted, isDeafened, isLocalSpeaking]);
+
   // Listen for real-time soundboard events from peers in the voice channel
   useEffect(() => {
     if (!socket) return;
@@ -79,13 +155,11 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
     }) => {
       console.log('🎵 [VoiceChannelView] Real-time sound played:', data);
 
-      // Play sound audibly if not muted
       const effectiveVol = isSoundboardMuted ? 0 : soundVolume;
       if (effectiveVol > 0) {
         playSoundEffect(data.soundId, effectiveVol, data.soundUrl);
       }
 
-      // Show visual notification toast
       setSoundToast({
         id: `${data.soundId}-${Date.now()}`,
         soundName: data.soundName,
@@ -113,7 +187,6 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
     (node: HTMLVideoElement | null) => {
       videoElementRef.current = node;
       if (node && activeStream) {
-        console.log('🎥 [VoiceChannelView] Callback ref attaching activeStream to <video>:', activeStream);
         node.srcObject = activeStream;
       }
     },
@@ -123,7 +196,6 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
   useEffect(() => {
     if (videoElementRef.current) {
       if (activeStream) {
-        console.log('🎥 [VoiceChannelView] Effect attaching activeStream to <video>:', activeStream);
         videoElementRef.current.srcObject = activeStream;
       } else {
         videoElementRef.current.srcObject = null;
@@ -159,8 +231,9 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
         <div className="flex items-center space-x-2.5">
           <Volume2 className="w-5 h-5 text-cyber-emerald" />
           <span className="font-extrabold text-white text-base">{channel.name}</span>
-          <span className="text-xs px-2.5 py-0.5 rounded-full bg-cyber-emerald/20 text-cyber-emerald font-bold border border-cyber-emerald/30">
-            Voice & Screen Share
+          <span className="text-xs px-2.5 py-0.5 rounded-full bg-cyber-emerald/20 text-cyber-emerald font-bold border border-cyber-emerald/30 flex items-center space-x-1.5">
+            <span className="w-2 h-2 rounded-full bg-cyber-emerald animate-ping" />
+            <span>{participants.length} {participants.length === 1 ? 'Connected' : 'Connected'}</span>
           </span>
         </div>
 
@@ -172,7 +245,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
         </div>
       </div>
 
-      {/* Main Screen Share Video Stage */}
+      {/* Main Call Stage Area */}
       <div className="flex-1 p-6 flex flex-col items-center justify-center relative overflow-hidden bg-[#0a0b10]">
         {/* Error Permission Banner */}
         {errorMsg && (
@@ -182,61 +255,179 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
           </div>
         )}
 
+        {/* Screen Share Mode vs Participant Grid Mode */}
         {activeStream ? (
-          <div className="relative w-full max-w-5xl h-full flex flex-col items-center justify-center rounded-3xl overflow-hidden shadow-2xl border border-cyber-cyan/30 shadow-glow-cyan group bg-black">
-            {/* Live Video Frame with callback ref */}
-            <video
-              ref={videoCallbackRef}
-              autoPlay
-              playsInline
-              muted={isSharing}
-              className="w-full h-full object-contain bg-black"
-            />
+          <div className="flex-1 w-full max-w-5xl flex flex-col items-center justify-center space-y-4 h-full min-h-0">
+            {/* Screen Share Stage */}
+            <div className="relative w-full flex-1 flex flex-col items-center justify-center rounded-3xl overflow-hidden shadow-2xl border border-cyber-cyan/30 shadow-glow-cyan group bg-black">
+              <video
+                ref={videoCallbackRef}
+                autoPlay
+                playsInline
+                muted={isSharing}
+                className="w-full h-full object-contain bg-black"
+              />
 
-            {/* Presenter Label Header */}
-            <div className="absolute top-4 left-4 z-10 flex items-center space-x-2 bg-black/70 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/10 text-xs font-bold text-white shadow-2xl">
-              <span>
-                {isSharing ? 'You are sharing your screen' : `${activePresenterName} is sharing their screen`}
-              </span>
-              <span className="text-[10px] text-cyber-cyan font-mono uppercase bg-cyber-cyan/10 border border-cyber-cyan/30 px-2 py-0.5 rounded-md">
-                LIVE 7 Mbps • DETAIL
-              </span>
+              {/* Presenter Header Label */}
+              <div className="absolute top-4 left-4 z-10 flex items-center space-x-2 bg-black/70 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/10 text-xs font-bold text-white shadow-2xl">
+                <span>
+                  {isSharing ? 'You are sharing your screen' : `${activePresenterName} is sharing their screen`}
+                </span>
+                <span className="text-[10px] text-cyber-cyan font-mono uppercase bg-cyber-cyan/10 border border-cyber-cyan/30 px-2 py-0.5 rounded-md">
+                  LIVE 7 Mbps • DETAIL
+                </span>
+              </div>
+
+              {/* Video Controls Overlay */}
+              <div className="absolute bottom-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-2 bg-black/70 backdrop-blur-md p-2 rounded-2xl border border-white/10">
+                <button
+                  onClick={toggleFullscreen}
+                  className="p-2 text-white/80 hover:text-white rounded-xl hover:bg-white/10 transition-colors"
+                  title="Toggle Fullscreen"
+                >
+                  <Maximize2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            {/* Video Controls Overlay */}
-            <div className="absolute bottom-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-2 bg-black/70 backdrop-blur-md p-2 rounded-2xl border border-white/10">
-              <button
-                onClick={toggleFullscreen}
-                className="p-2 text-white/80 hover:text-white rounded-xl hover:bg-white/10 transition-colors"
-                title="Toggle Fullscreen"
-              >
-                <Maximize2 className="w-4 h-4" />
-              </button>
+            {/* Bottom Compact Participant Strip */}
+            <div className="w-full max-w-5xl flex items-center justify-center space-x-3 overflow-x-auto p-2.5 bg-cyber-panel/80 backdrop-blur-md rounded-2xl border border-cyber-border">
+              {participants.map((p) => {
+                const isSelf = p.userId === user?.id || p.socketId === socket?.id;
+                const pMuted = isSelf ? isMuted : p.isMuted;
+                const pDeafened = isSelf ? isDeafened : p.isDeafened;
+                const pSpeaking = isSelf ? isLocalSpeaking : p.isSpeaking;
+
+                return (
+                  <div
+                    key={p.socketId}
+                    className={`flex items-center space-x-2.5 px-3 py-1.5 rounded-xl border transition-all duration-200 ${
+                      pSpeaking
+                        ? 'bg-cyber-emerald/20 border-cyber-emerald shadow-glow-emerald'
+                        : 'bg-black/40 border-white/10'
+                    }`}
+                  >
+                    <div className="relative">
+                      <img
+                        src={p.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p.username)}`}
+                        alt={p.username}
+                        className={`w-8 h-8 rounded-full object-cover transition-all ${
+                          pSpeaking ? 'ring-2 ring-cyber-emerald scale-105' : ''
+                        }`}
+                      />
+                      {(pMuted || pDeafened) && (
+                        <div className="absolute -bottom-1 -right-1 p-0.5 rounded-full bg-cyber-rose text-white border border-[#0a0b10]">
+                          {pDeafened ? <Headphones className="w-2.5 h-2.5" /> : <MicOff className="w-2.5 h-2.5" />}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <span className="text-xs font-extrabold text-white max-w-[80px] truncate">
+                        {p.displayName || p.username}
+                      </span>
+                      {isSelf && (
+                        <span className="text-[8px] bg-cyber-violet/30 text-cyber-violet px-1.5 py-0.2 rounded-full font-mono">
+                          YOU
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         ) : (
-          /* Empty Stage Placeholder when no one is sharing */
-          <div className="max-w-md text-center p-8 bg-cyber-panel/60 rounded-3xl border border-cyber-border shadow-2xl backdrop-blur-md">
-            <div className="w-20 h-20 rounded-3xl bg-aurora-gradient text-white flex items-center justify-center mx-auto mb-4 shadow-glow-violet">
-              <Monitor className="w-10 h-10" />
-            </div>
-            <h2 className="text-xl font-extrabold text-white mb-2">No Screen Share Active</h2>
-            <p className="text-xs text-cyber-muted mb-6 leading-relaxed">
-              Start sharing your screen, application window, or browser tab with everyone in <strong>#{channel.name}</strong>.
-            </p>
+          /* Grid of Participant Tiles when no screen share is active */
+          <div className="flex-1 w-full max-w-5xl flex items-center justify-center p-4">
+            {participants.length === 0 ? (
+              <div className="max-w-md text-center p-8 bg-cyber-panel/60 rounded-3xl border border-cyber-border shadow-2xl backdrop-blur-md">
+                <div className="w-20 h-20 rounded-3xl bg-aurora-gradient text-white flex items-center justify-center mx-auto mb-4 shadow-glow-violet animate-pulse">
+                  <Volume2 className="w-10 h-10" />
+                </div>
+                <h2 className="text-xl font-extrabold text-white mb-2">Voice Lounge Connected</h2>
+                <p className="text-xs text-cyber-muted mb-6 leading-relaxed">
+                  Connecting your audio session to <strong>#{channel.name}</strong>...
+                </p>
+              </div>
+            ) : (
+              <div
+                className={`grid gap-5 w-full max-w-5xl items-center justify-center ${
+                  participants.length === 1
+                    ? 'grid-cols-1 max-w-sm'
+                    : participants.length === 2
+                    ? 'grid-cols-1 sm:grid-cols-2 max-w-2xl'
+                    : participants.length <= 4
+                    ? 'grid-cols-2 max-w-3xl'
+                    : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 max-w-5xl'
+                }`}
+              >
+                {participants.map((p) => {
+                  const isSelf = p.userId === user?.id || p.socketId === socket?.id;
+                  const pMuted = isSelf ? isMuted : p.isMuted;
+                  const pDeafened = isSelf ? isDeafened : p.isDeafened;
+                  const pSpeaking = isSelf ? isLocalSpeaking : p.isSpeaking;
 
-            <button
-              onClick={startScreenShare}
-              className="px-6 py-3 bg-aurora-gradient hover:bg-aurora-hover text-white text-xs font-bold rounded-2xl shadow-glow-violet transition-all flex items-center justify-center space-x-2 mx-auto"
-            >
-              <Monitor className="w-4 h-4" />
-              <span>Share Screen (1080p 60fps Target)</span>
-            </button>
+                  return (
+                    <div
+                      key={p.socketId}
+                      className={`bg-cyber-panel/80 border rounded-3xl p-6 flex flex-col items-center justify-center relative shadow-2xl backdrop-blur-md transition-all duration-300 ${
+                        pSpeaking
+                          ? 'border-cyber-emerald shadow-glow-emerald bg-cyber-emerald/5 scale-[1.02]'
+                          : 'border-cyber-border/70 hover:border-cyber-cyan/40'
+                      }`}
+                    >
+                      {/* Avatar with Speaking Ring */}
+                      <div className="relative mb-3.5">
+                        <img
+                          src={p.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p.username)}`}
+                          alt={p.username}
+                          className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover shadow-2xl transition-all duration-200 ${
+                            pSpeaking
+                              ? 'ring-4 ring-cyber-emerald ring-offset-4 ring-offset-[#0a0b10] shadow-glow-emerald scale-105'
+                              : 'ring-2 ring-white/10'
+                          }`}
+                        />
+
+                        {/* Muted / Deafened Icon Badge Overlay */}
+                        {(pMuted || pDeafened) && (
+                          <div
+                            className="absolute bottom-0 right-0 p-2 rounded-full bg-cyber-rose text-white border-2 border-[#0a0b10] shadow-lg"
+                            title={pDeafened ? 'Deafened' : 'Muted'}
+                          >
+                            {pDeafened ? <Headphones className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Username & Local Tag */}
+                      <div className="flex items-center space-x-1.5 max-w-full">
+                        <span className="text-sm font-extrabold text-white truncate max-w-[140px]">
+                          {p.displayName || p.username}
+                        </span>
+                        {isSelf && (
+                          <span className="text-[9px] bg-cyber-violet/30 text-cyber-violet px-2 py-0.5 rounded-full font-mono font-bold border border-cyber-violet/40">
+                            YOU
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Speaking Status Indicator Label */}
+                      {pSpeaking && (
+                        <span className="text-[10px] text-cyber-emerald font-extrabold flex items-center space-x-1 mt-1.5 animate-pulse">
+                          <span className="w-1.5 h-1.5 rounded-full bg-cyber-emerald" />
+                          <span>SPEAKING</span>
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Bottom Voice Call Toolbar Controls */}
+      {/* Bottom Voice Call Control Bar */}
       <div className="h-16 bg-cyber-panel px-6 border-t border-cyber-border flex items-center justify-between z-10">
         <div className="flex items-center space-x-2">
           {/* Mute Microphone Button */}
@@ -250,6 +441,19 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
             title={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
           >
             {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+          </button>
+
+          {/* Deafen Headphones Button */}
+          <button
+            onClick={() => setIsDeafened(!isDeafened)}
+            className={`p-3 rounded-2xl border transition-all ${
+              isDeafened
+                ? 'bg-cyber-rose/10 border-cyber-rose text-cyber-rose'
+                : 'bg-cyber-input border-cyber-border text-cyber-text hover:bg-cyber-hover'
+            }`}
+            title={isDeafened ? 'Undeafen' : 'Deafen'}
+          >
+            <Headphones className="w-5 h-5" />
           </button>
 
           {/* Soundboard Panel Open Button */}

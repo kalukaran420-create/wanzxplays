@@ -14,7 +14,7 @@
     "prisma:push": "npm run prisma:push --prefix server",
     "build:client": "npm run build --prefix client",
     "build:server": "npm run build --prefix server",
-    "build": "npm run prisma:generate && npm run build:client && npm run build:server",
+    "build": "npm run build:client && npm run build:server",
     "start": "node server/dist/index.js"
   },
   "devDependencies": {

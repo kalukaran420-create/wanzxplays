@@ -58,7 +58,8 @@ export const useWebRTC = (channelId: string | null) => {
       return peerConnectionsRef.current[targetSocketId];
     }
 
-    console.log(`🎥 [WebRTC Pipeline] Creating RTCPeerConnection for target peer: ${targetSocketId}`);
+    const timestamp = new Date().toISOString();
+    console.log(`🎥 [PC-DIAG] [${timestamp}] Creating RTCPeerConnection for target peer: ${targetSocketId}`);
     const pc = new RTCPeerConnection(STUN_SERVERS);
     peerConnectionsRef.current[targetSocketId] = pc;
 
@@ -152,7 +153,8 @@ export const useWebRTC = (channelId: string | null) => {
     };
 
     pc.oniceconnectionstatechange = () => {
-      console.log(`🎥 [WebRTC Pipeline] ICE Connection State with ${targetSocketId}: ${pc.iceConnectionState}`);
+      const timestamp = new Date().toISOString();
+      console.log(`🎥 [PC-DIAG] [${timestamp}] ICE Connection State with ${targetSocketId}: ${pc.iceConnectionState}`);
       if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed') {
         pc.close();
         delete peerConnectionsRef.current[targetSocketId];

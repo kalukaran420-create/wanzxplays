@@ -20,7 +20,7 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
   const { servers, activeServer, selectServer } = useServer();
 
   return (
-    <div className="w-[72px] min-w-[72px] max-w-[72px] bg-cyber-base flex flex-col items-center py-3 space-y-2 select-none flex-shrink-0 border-r border-cyber-border z-30">
+    <div className="w-[72px] min-w-[72px] max-w-[72px] bg-cyber-base flex flex-col items-center py-3 space-y-2 select-none flex-shrink-0 border-r border-cyber-border z-30 overflow-x-hidden">
       {/* App Home Button */}
       <div className="relative group flex items-center justify-center w-12 h-12">
         <div
@@ -34,6 +34,7 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
           className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white transition-all duration-300 hover:rounded-xl group-hover:scale-105 ${
             activeView === 'dm' ? 'bg-aurora-gradient rounded-xl shadow-glow-violet' : 'bg-cyber-panel border border-white/5 text-cyber-text hover:bg-cyber-hover'
           }`}
+          title="Direct Messages"
         >
           <Zap className="w-6 h-6 fill-white stroke-none" />
         </button>
@@ -42,7 +43,7 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
       <div className="w-8 h-[2px] bg-cyber-border rounded-full my-1" />
 
       {/* Server List */}
-      <div className="flex-1 w-full space-y-2.5 overflow-y-auto no-scrollbar flex flex-col items-center px-2">
+      <div className="flex-1 w-full space-y-2.5 overflow-y-auto overflow-x-hidden no-scrollbar flex flex-col items-center px-2">
         {servers.map((server) => {
           const isActive = activeView === 'server' && activeServer?.id === server.id;
 
@@ -62,6 +63,7 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
                   selectServer(server.id);
                   setActiveView?.('server');
                 }}
+                title={server.name}
                 className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-extrabold text-sm transition-all duration-300 hover:rounded-xl group-hover:scale-105 overflow-hidden ${
                   isActive
                     ? 'bg-aurora-gradient rounded-xl shadow-glow-violet'

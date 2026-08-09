@@ -172,6 +172,11 @@ export const useWebRTC = (channelId: string | null) => {
       }
     };
 
+    pc.onconnectionstatechange = () => {
+      const timestamp = new Date().toISOString();
+      console.log(`🎥 [PC-DIAG] [${timestamp}] Overall Connection State with ${targetSocketId}: ${pc.connectionState}`);
+    };
+
     return pc;
   }, [socket]);
 
@@ -400,7 +405,8 @@ export const useWebRTC = (channelId: string | null) => {
       (peers || []).forEach((targetSocketId) => {
         if (targetSocketId && targetSocketId !== socket.id) {
           const pc = createPeerConnection(targetSocketId);
-          if (pc.signalingState === 'stable') {
+          // Asymmetric offerer pattern: deterministic offerer selection prevents offer glare
+          if (socket?.id && socket.id < targetSocketId && pc.signalingState === 'stable') {
             pc.createOffer().then((offer) => {
               pc.setLocalDescription(offer);
               socket.emit('webrtc:offer', {
@@ -438,7 +444,8 @@ export const useWebRTC = (channelId: string | null) => {
       }
 
       const pc = createPeerConnection(socketId);
-      if (pc.signalingState === 'stable') {
+      // Asymmetric offerer pattern: deterministic offerer selection prevents offer glare
+      if (socket?.id && socket.id < socketId && pc.signalingState === 'stable') {
         pc.createOffer().then((offer) => {
           pc.setLocalDescription(offer);
           socket.emit('webrtc:offer', {

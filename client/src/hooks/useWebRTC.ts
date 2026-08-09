@@ -30,6 +30,7 @@ export const useWebRTC = (channelId: string | null) => {
   const [isSharing, setIsSharing] = useState<boolean>(false);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<{ [socketId: string]: { stream: MediaStream; username: string } }>({});
+  const [remoteAudioStreams, setRemoteAudioStreams] = useState<{ [socketId: string]: MediaStream }>({});
   const [presenterInfo, setPresenterInfo] = useState<{ username: string; socketId: string } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [streamStats, setStreamStats] = useState<StreamStats | null>(null);
@@ -37,6 +38,7 @@ export const useWebRTC = (channelId: string | null) => {
 
   const peerConnectionsRef = useRef<PeerConnectionMap>({});
   const localStreamRef = useRef<MediaStream | null>(null);
+  const localAudioStreamRef = useRef<MediaStream | null>(null);
   const presenterInfoRef = useRef<{ username: string; socketId: string } | null>(null);
   const roomPeersRef = useRef<string[]>([]);
 
@@ -52,13 +54,11 @@ export const useWebRTC = (channelId: string | null) => {
         if (!params.encodings || params.encodings.length === 0) {
           params.encodings = [{}];
         }
-        // Target 7 Mbps (7,000,000 bps) for high-quality 1080p 60fps screen share
         params.encodings[0].maxBitrate = 7000000;
-        // Maintain smooth 60fps framerate for low latency
         params.degradationPreference = 'maintain-framerate';
 
         sender.setParameters(params).then(() => {
-          console.log('🎥 [WebRTC] Set maxBitrate=7,000,000 bps (7 Mbps), degradationPreference="maintain-framerate"');
+          console.log('🎥 [WebRTC] Set maxBitrate=7,000,000 bps (7 Mbps)');
         }).catch((err) => {
           console.warn('🎥 [WebRTC] Bitrate setParameters warning:', err);
         });
@@ -78,7 +78,17 @@ export const useWebRTC = (channelId: string | null) => {
     const pc = new RTCPeerConnection(STUN_SERVERS);
     peerConnectionsRef.current[targetSocketId] = pc;
 
-    // Attach local stream tracks if presenting
+    // Attach local mic audio stream tracks if available
+    if (localAudioStreamRef.current) {
+      localAudioStreamRef.current.getAudioTracks().forEach((track) => {
+        console.log(`🎙️ [WebRTC] Attaching mic audio track (${track.label}, enabled: ${track.enabled}) to peer ${targetSocketId}`);
+        pc.addTrack(track, localAudioStreamRef.current!);
+      });
+    } else {
+      console.warn(`🎙️ [WebRTC] WARNING: Creating PeerConnection for ${targetSocketId} but localAudioStreamRef is NULL!`);
+    }
+
+    // Attach local screen share video stream tracks if presenting
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => {
         const sender = pc.addTrack(track, localStreamRef.current!);
@@ -98,32 +108,45 @@ export const useWebRTC = (channelId: string | null) => {
       }
     };
 
-    // Track handler (receive remote video)
+    // Track handler (receive remote video & audio)
     pc.ontrack = (event) => {
-      console.log(`🎥 [WebRTC] Received remote stream track from ${targetSocketId}:`, event.streams[0]);
+      console.log(`🎥 [WebRTC] Received remote stream track (${event.track.kind}) from ${targetSocketId}:`, event.streams[0]);
       if (event.receiver && 'playoutDelayHint' in event.receiver) {
-        (event.receiver as any).playoutDelayHint = 0; // Minimize playout buffering delay
+        (event.receiver as any).playoutDelayHint = 0;
       }
 
       if (event.streams && event.streams[0]) {
         const stream = event.streams[0];
-        const vTrack = stream.getVideoTracks()[0];
-        if (vTrack) {
-          const settings = vTrack.getSettings();
-          setStreamStats({
-            width: settings.width || 1920,
-            height: settings.height || 1080,
-            frameRate: Math.round(settings.frameRate || 60),
-          });
+
+        // Handle remote microphone audio stream
+        if (event.track.kind === 'audio') {
+          console.log(`🔊 [WebRTC] Setting remote audio stream for peer ${targetSocketId}`);
+          setRemoteAudioStreams((prev) => ({
+            ...prev,
+            [targetSocketId]: stream,
+          }));
         }
 
-        setRemoteStreams((prev) => ({
-          ...prev,
-          [targetSocketId]: {
-            stream,
-            username: presenterInfoRef.current?.username || 'Peer Presenter',
-          },
-        }));
+        // Handle remote video stream for screen share
+        if (event.track.kind === 'video') {
+          const vTrack = stream.getVideoTracks()[0];
+          if (vTrack) {
+            const settings = vTrack.getSettings();
+            setStreamStats({
+              width: settings.width || 1920,
+              height: settings.height || 1080,
+              frameRate: Math.round(settings.frameRate || 60),
+            });
+          }
+
+          setRemoteStreams((prev) => ({
+            ...prev,
+            [targetSocketId]: {
+              stream,
+              username: presenterInfoRef.current?.username || 'Peer Presenter',
+            },
+          }));
+        }
       }
     };
 
@@ -132,6 +155,11 @@ export const useWebRTC = (channelId: string | null) => {
       if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed') {
         pc.close();
         delete peerConnectionsRef.current[targetSocketId];
+        setRemoteAudioStreams((prev) => {
+          const updated = { ...prev };
+          delete updated[targetSocketId];
+          return updated;
+        });
         setRemoteStreams((prev) => {
           const updated = { ...prev };
           delete updated[targetSocketId];
@@ -143,20 +171,25 @@ export const useWebRTC = (channelId: string | null) => {
     return pc;
   }, [socket]);
 
+  // Toggle local microphone audio track enabled state
+  const setMicMutedState = useCallback((muted: boolean) => {
+    if (localAudioStreamRef.current) {
+      localAudioStreamRef.current.getAudioTracks().forEach((track) => {
+        track.enabled = !muted;
+        console.log(`🎙️ [WebRTC] Toggled mic track enabled = ${!muted} (${track.label})`);
+      });
+    }
+  }, []);
+
   // Cleanly teardown and stop screen sharing tracks
   const stopScreenShare = useCallback(() => {
     console.log('🎥 [WebRTC] Stopping local screen share stream');
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => {
         track.stop();
-        console.log(`🎥 [WebRTC] Stopped track: ${track.kind} (${track.label})`);
       });
       localStreamRef.current = null;
     }
-
-    // Close peer connections and reset state
-    Object.values(peerConnectionsRef.current).forEach((pc) => pc.close());
-    peerConnectionsRef.current = {};
 
     setLocalStream(null);
     setIsSharing(false);
@@ -170,15 +203,14 @@ export const useWebRTC = (channelId: string | null) => {
     }
   }, [socket, channelId]);
 
-  // Request display media (1080p @ 60fps target with 7 Mbps bitrate & detail contentHint)
+  // Request display media
   const startScreenShare = useCallback(async () => {
     setErrorMsg(null);
-    console.log('🎥 [WebRTC] Requesting getDisplayMedia with 1080p (1920x1080) @ 60fps target...');
+    console.log('🎥 [WebRTC] Requesting getDisplayMedia...');
     try {
       let stream: MediaStream;
 
       try {
-        // High quality target: 1080p (1920x1080) @ 60fps
         stream = await navigator.mediaDevices.getDisplayMedia({
           video: {
             width: { ideal: 1920 },
@@ -188,31 +220,23 @@ export const useWebRTC = (channelId: string | null) => {
           audio: false,
         });
       } catch (err) {
-        console.warn('🎥 [WebRTC] 1080p / 60fps constraint fallback triggered:', err);
         stream = await navigator.mediaDevices.getDisplayMedia({
           video: true,
           audio: false,
         });
       }
 
-      console.log('🎥 [WebRTC] getDisplayMedia resolved with MediaStream:', stream);
-
       const videoTrack = stream.getVideoTracks()[0];
       if (videoTrack) {
-        // Set contentHint = 'detail' for maximum text/UI sharpness
         if ('contentHint' in videoTrack) {
           videoTrack.contentHint = 'detail';
-          console.log('🎥 [WebRTC] Set videoTrack.contentHint = "detail" (Optimized for text/UI sharpness)');
         }
-
-        // Measure actual captured resolution & frame rate from browser
         const settings = videoTrack.getSettings();
         const actualStats: StreamStats = {
           width: settings.width || 1920,
           height: settings.height || 1080,
           frameRate: Math.round(settings.frameRate || 60),
         };
-        console.log('🎥 [WebRTC] Actual captured stream settings:', actualStats);
         setStreamStats(actualStats);
       }
 
@@ -227,7 +251,6 @@ export const useWebRTC = (channelId: string | null) => {
       // Create peer connections & offers for all existing room peers
       roomPeersRef.current.forEach((targetSocketId) => {
         if (targetSocketId && targetSocketId !== socket?.id) {
-          console.log(`🎥 [WebRTC] Creating WebRTC offer for room peer: ${targetSocketId}`);
           const pc = createPeerConnection(targetSocketId);
           pc.createOffer().then((offer) => {
             pc.setLocalDescription(offer);
@@ -236,10 +259,8 @@ export const useWebRTC = (channelId: string | null) => {
         }
       });
 
-      // Handle user clicking native browser "Stop Sharing" floating bar
       if (videoTrack) {
         videoTrack.onended = () => {
-          console.log('🎥 [WebRTC] Native browser stop sharing clicked');
           stopScreenShare();
         };
       }
@@ -248,7 +269,6 @@ export const useWebRTC = (channelId: string | null) => {
         socket.emit('screen:start', { channelId });
       }
     } catch (err: any) {
-      console.error('🎥 [WebRTC] getDisplayMedia Permission Error:', err);
       if (err.name === 'NotAllowedError') {
         setErrorMsg('Screen sharing permission was denied by the browser.');
       } else {
@@ -257,30 +277,57 @@ export const useWebRTC = (channelId: string | null) => {
     }
   }, [socket, channelId, user, createPeerConnection, stopScreenShare]);
 
-  // Handle voice channel join and socket signaling events
+  // Handle voice channel join and socket signaling events with prior mic audio acquisition
   useEffect(() => {
     if (!socket || !channelId) return;
 
-    console.log(`🎥 [WebRTC] Joining voice room for channel ${channelId}`);
-    socket.emit('voice:join', {
-      channelId,
-      userProfile: {
-        displayName: user?.displayName || user?.username,
-        avatar: user?.avatar,
-      },
-    });
+    let isSubscribed = true;
 
-    // Handle existing peers and initial participants
+    const joinVoiceChannel = async () => {
+      // 1. Acquire local mic stream FIRST before signaling room join
+      try {
+        console.log('🎙️ [WebRTC] Requesting getUserMedia({ audio: true })...');
+        const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (isSubscribed) {
+          localAudioStreamRef.current = micStream;
+          console.log('🎙️ [WebRTC] Mic stream captured successfully:', micStream.getAudioTracks()[0]?.label);
+        }
+      } catch (err) {
+        console.warn('🎙️ [WebRTC] Mic getUserMedia warning (permission denied or no mic device):', err);
+      }
+
+      if (!isSubscribed) return;
+
+      console.log(`🎥 [WebRTC] Joining voice room for channel ${channelId}`);
+      socket.emit('voice:join', {
+        channelId,
+        userProfile: {
+          displayName: user?.displayName || user?.username,
+          avatar: user?.avatar,
+        },
+      });
+    };
+
     const handleVoicePeers = ({ peers, participants: initialParticipants }: { peers: string[]; participants?: VoiceParticipant[] }) => {
       console.log('🎥 [WebRTC] Voice peers currently in room:', peers);
       roomPeersRef.current = peers || [];
       if (initialParticipants) {
         setParticipants(initialParticipants);
       }
+
+      // Establish WebRTC PeerConnections to all existing room peers with mic audio
+      (peers || []).forEach((targetSocketId) => {
+        if (targetSocketId && targetSocketId !== socket.id) {
+          const pc = createPeerConnection(targetSocketId);
+          pc.createOffer().then((offer) => {
+            pc.setLocalDescription(offer);
+            socket.emit('webrtc:offer', { targetSocketId, offer });
+          });
+        }
+      });
     };
 
     const handleVoiceParticipants = (updatedParticipants: VoiceParticipant[]) => {
-      console.log('👥 [WebRTC] Voice channel participants list updated:', updatedParticipants);
       setParticipants(updatedParticipants);
     };
 
@@ -290,23 +337,19 @@ export const useWebRTC = (channelId: string | null) => {
       );
     };
 
-    // Handle new user joining room
     const handleUserJoined = ({ socketId, user: peerUser }: { socketId: string; user: { username: string; displayName?: string; avatar?: string } }) => {
       console.log(`🎥 [WebRTC] Peer ${peerUser.username} (${socketId}) joined room`);
       if (!roomPeersRef.current.includes(socketId)) {
         roomPeersRef.current.push(socketId);
       }
 
-      if (localStreamRef.current) {
-        const pc = createPeerConnection(socketId);
-        pc.createOffer().then((offer) => {
-          pc.setLocalDescription(offer);
-          socket.emit('webrtc:offer', { targetSocketId: socketId, offer });
-        });
-      }
+      const pc = createPeerConnection(socketId);
+      pc.createOffer().then((offer) => {
+        pc.setLocalDescription(offer);
+        socket.emit('webrtc:offer', { targetSocketId: socketId, offer });
+      });
     };
 
-    // Handle user leaving room
     const handleUserLeft = ({ socketId }: { socketId: string }) => {
       console.log(`🎥 [WebRTC] Peer ${socketId} left room`);
       roomPeersRef.current = roomPeersRef.current.filter((id) => id !== socketId);
@@ -314,6 +357,11 @@ export const useWebRTC = (channelId: string | null) => {
         peerConnectionsRef.current[socketId].close();
         delete peerConnectionsRef.current[socketId];
       }
+      setRemoteAudioStreams((prev) => {
+        const updated = { ...prev };
+        delete updated[socketId];
+        return updated;
+      });
       setRemoteStreams((prev) => {
         const updated = { ...prev };
         delete updated[socketId];
@@ -326,12 +374,8 @@ export const useWebRTC = (channelId: string | null) => {
       }
     };
 
-    // Handle incoming offer
     const handleOffer = async ({ senderSocketId, senderUser, offer }: { senderSocketId: string; senderUser: { username: string }; offer: any }) => {
       console.log(`🎥 [WebRTC] Received offer from ${senderUser.username} (${senderSocketId})`);
-      presenterInfoRef.current = { username: senderUser.username, socketId: senderSocketId };
-      setPresenterInfo(presenterInfoRef.current);
-
       const pc = createPeerConnection(senderSocketId);
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
       const answer = await pc.createAnswer();
@@ -340,7 +384,6 @@ export const useWebRTC = (channelId: string | null) => {
       socket.emit('webrtc:answer', { targetSocketId: senderSocketId, answer });
     };
 
-    // Handle incoming answer
     const handleAnswer = async ({ senderSocketId, answer }: { senderSocketId: string; answer: any }) => {
       console.log(`🎥 [WebRTC] Received answer from ${senderSocketId}`);
       const pc = peerConnectionsRef.current[senderSocketId];
@@ -349,7 +392,6 @@ export const useWebRTC = (channelId: string | null) => {
       }
     };
 
-    // Handle incoming ICE candidate
     const handleIceCandidate = async ({ senderSocketId, candidate }: { senderSocketId: string; candidate: any }) => {
       const pc = peerConnectionsRef.current[senderSocketId];
       if (pc) {
@@ -357,15 +399,12 @@ export const useWebRTC = (channelId: string | null) => {
       }
     };
 
-    // Handle screen share start/stop notifications
     const handleScreenStart = ({ presenterSocketId, presenterUser }: { presenterSocketId: string; presenterUser: { username: string } }) => {
-      console.log(`🎥 [WebRTC] Screen share started by ${presenterUser.username} (${presenterSocketId})`);
       presenterInfoRef.current = { username: presenterUser.username, socketId: presenterSocketId };
       setPresenterInfo(presenterInfoRef.current);
     };
 
     const handleScreenStop = ({ presenterSocketId }: { presenterSocketId: string }) => {
-      console.log(`🎥 [WebRTC] Screen share stopped by ${presenterSocketId}`);
       setRemoteStreams((prev) => {
         const updated = { ...prev };
         delete updated[presenterSocketId];
@@ -389,7 +428,10 @@ export const useWebRTC = (channelId: string | null) => {
     socket.on('screen:start', handleScreenStart);
     socket.on('screen:stop', handleScreenStop);
 
+    joinVoiceChannel();
+
     return () => {
+      isSubscribed = false;
       socket.emit('voice:leave', { channelId });
       socket.off('voice:peers', handleVoicePeers);
       socket.off('voice:participants', handleVoiceParticipants);
@@ -402,6 +444,11 @@ export const useWebRTC = (channelId: string | null) => {
       socket.off('screen:start', handleScreenStart);
       socket.off('screen:stop', handleScreenStop);
 
+      if (localAudioStreamRef.current) {
+        localAudioStreamRef.current.getTracks().forEach((t) => t.stop());
+        localAudioStreamRef.current = null;
+      }
+
       stopScreenShare();
     };
   }, [socket, channelId, user, createPeerConnection, stopScreenShare]);
@@ -410,10 +457,12 @@ export const useWebRTC = (channelId: string | null) => {
     isSharing,
     localStream,
     remoteStreams,
+    remoteAudioStreams,
     presenterInfo,
     errorMsg,
     streamStats,
     participants,
+    setMicMutedState,
     startScreenShare,
     stopScreenShare,
   };

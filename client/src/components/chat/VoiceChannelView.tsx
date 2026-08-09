@@ -36,10 +36,12 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
     isSharing,
     localStream,
     remoteStreams,
+    remoteAudioStreams,
     presenterInfo,
     errorMsg,
     streamStats,
     participants,
+    setMicMutedState,
     startScreenShare,
     stopScreenShare,
   } = useWebRTC(channel.id);
@@ -61,14 +63,21 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
   const activeStream = isSharing ? localStream : Object.values(remoteStreams)[0]?.stream;
   const activePresenterName = isSharing ? 'You' : presenterInfo?.username || 'Peer Presenter';
 
-  // Handle soundboard volume slider changes with real-time audio update & localStorage persistence
+  // Toggle local mic audio track state in WebRTC & broadcast state update
+  const handleToggleMicMute = () => {
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    setMicMutedState(newMuted);
+  };
+
+  // Handle soundboard volume slider changes
   const handleVolumeChange = (vol: number) => {
     setSoundVolumeState(vol);
     localStorage.setItem('pulsecord_soundboard_volume', String(vol));
     setSoundboardVolume(isSoundboardMuted ? 0 : vol);
   };
 
-  const handleToggleMute = (muted: boolean) => {
+  const handleToggleSoundboardMute = (muted: boolean) => {
     setIsSoundboardMuted(muted);
     setSoundboardVolume(muted ? 0 : soundVolume);
   };
@@ -153,8 +162,6 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
       soundUrl?: string;
       user: { id: string; username: string };
     }) => {
-      console.log('🎵 [VoiceChannelView] Real-time sound played:', data);
-
       const effectiveVol = isSoundboardMuted ? 0 : soundVolume;
       if (effectiveVol > 0) {
         playSoundEffect(data.soundId, effectiveVol, data.soundUrl);
@@ -215,6 +222,23 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
 
   return (
     <div className="flex-1 bg-cyber-chat flex flex-col h-full overflow-hidden select-none relative">
+      {/* Hidden HTML5 DOM Audio Elements for Remote Peer Microphone Playback */}
+      {Object.entries(remoteAudioStreams).map(([peerSocketId, stream]) => (
+        <audio
+          key={peerSocketId}
+          autoPlay
+          playsInline
+          muted={isDeafened}
+          ref={(el) => {
+            if (el && stream) {
+              console.log(`🔊 [VoiceChannelView] Attaching remote mic stream from socket ${peerSocketId} to DOM <audio> element`);
+              el.srcObject = stream;
+              el.play().catch((err) => console.warn('🔊 [VoiceChannelView] DOM audio play error:', err));
+            }
+          }}
+        />
+      ))}
+
       {/* Real-time Soundboard Toast Notification Banner */}
       {soundToast && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-2xl bg-black/80 backdrop-blur-md border border-cyber-cyan/50 text-white text-xs font-bold shadow-2xl flex items-center space-x-2.5 animate-fade-in shadow-glow-cyan">
@@ -233,7 +257,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
           <span className="font-extrabold text-white text-base">{channel.name}</span>
           <span className="text-xs px-2.5 py-0.5 rounded-full bg-cyber-emerald/20 text-cyber-emerald font-bold border border-cyber-emerald/30 flex items-center space-x-1.5">
             <span className="w-2 h-2 rounded-full bg-cyber-emerald animate-ping" />
-            <span>{participants.length} {participants.length === 1 ? 'Connected' : 'Connected'}</span>
+            <span>{participants.length} Connected</span>
           </span>
         </div>
 
@@ -432,7 +456,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
         <div className="flex items-center space-x-2">
           {/* Mute Microphone Button */}
           <button
-            onClick={() => setIsMuted(!isMuted)}
+            onClick={handleToggleMicMute}
             className={`p-3 rounded-2xl border transition-all ${
               isMuted
                 ? 'bg-cyber-rose/10 border-cyber-rose text-cyber-rose'
@@ -509,7 +533,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
         soundVolume={soundVolume}
         setSoundVolume={handleVolumeChange}
         isMuted={isSoundboardMuted}
-        setIsMuted={handleToggleMute}
+        setIsMuted={handleToggleSoundboardMute}
       />
     </div>
   );

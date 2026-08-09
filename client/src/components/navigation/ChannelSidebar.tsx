@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useServer } from '../../context/ServerContext';
+import { useSocket } from '../../context/SocketContext';
 import { UserFooter } from './UserFooter';
 import {
   Hash,
@@ -10,11 +11,12 @@ import {
   Settings,
   UserPlus,
   Trash2,
-  Monitor,
   PhoneOff,
   Sparkles,
+  MicOff,
 } from 'lucide-react';
 import { Channel } from '../../types';
+import { VoiceParticipant } from '../../hooks/useWebRTC';
 
 interface ChannelSidebarProps {
   onOpenCreateChannel: (categoryId?: string) => void;
@@ -32,9 +34,28 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
   onOpenUserSettings,
 }) => {
   const { activeServer, activeChannel, selectChannel, deleteChannel } = useServer();
+  const { socket } = useSocket();
   const [showServerMenu, setShowServerMenu] = useState(false);
   const [collapsedCategories, setCollapsedCategories] = useState<{ [key: string]: boolean }>({});
   const [connectedVoiceChannel, setConnectedVoiceChannel] = useState<Channel | null>(null);
+  const [voiceRoomsSummary, setVoiceRoomsSummary] = useState<{ [channelId: string]: VoiceParticipant[] }>({});
+
+  useEffect(() => {
+    if (!socket) return;
+
+    // Fetch initial voice rooms summary
+    socket.emit('voice:get-room-summary');
+
+    const handleRoomSummary = (summary: { [channelId: string]: VoiceParticipant[] }) => {
+      setVoiceRoomsSummary(summary || {});
+    };
+
+    socket.on('voice:room-summary', handleRoomSummary);
+
+    return () => {
+      socket.off('voice:room-summary', handleRoomSummary);
+    };
+  }, [socket]);
 
   if (!activeServer) {
     return (
@@ -55,93 +76,123 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
     }
   };
 
-  // Collect IDs of channels already inside explicit categories
   const categorizedChannelIds = new Set(
-    activeServer.categories?.flatMap((cat) => cat.channels?.map((c) => c.id) || []) || []
+    (activeServer.categories || []).flatMap((cat) => (cat.channels || []).map((c) => c.id))
   );
 
-  // Find channels that are not inside any explicit category
   const uncategorizedChannels = activeServer.channels?.filter((c) => !categorizedChannelIds.has(c.id)) || [];
-  const uncategorizedText = uncategorizedChannels.filter((c) => c.type === 'TEXT');
   const uncategorizedVoice = uncategorizedChannels.filter((c) => c.type === 'VOICE');
+  const uncategorizedText = uncategorizedChannels.filter((c) => c.type === 'TEXT');
+
+  const renderVoiceParticipantList = (channelId: string) => {
+    const participantsList = voiceRoomsSummary[channelId] || [];
+    if (participantsList.length === 0) return null;
+
+    return (
+      <div className="pl-6 pt-1 space-y-1">
+        {participantsList.map((p) => (
+          <div key={p.socketId} className="flex items-center space-x-2 py-0.5 px-1.5 rounded-lg hover:bg-white/5 transition-all">
+            <div className="relative flex-shrink-0">
+              <img
+                src={p.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p.username)}`}
+                alt={p.username}
+                className={`w-4 h-4 rounded-full object-cover transition-all ${
+                  p.isSpeaking ? 'ring-2 ring-cyber-emerald shadow-glow-emerald scale-105' : 'ring-1 ring-white/10'
+                }`}
+              />
+              {(p.isMuted || p.isDeafened) && (
+                <div className="absolute -bottom-0.5 -right-0.5 p-0.2 bg-cyber-rose rounded-full text-white">
+                  <MicOff className="w-2 h-2" />
+                </div>
+              )}
+            </div>
+            <span className="text-[11px] font-semibold text-cyber-muted hover:text-white truncate max-w-[110px]">
+              {p.displayName || p.username}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
-    <div className="w-60 bg-cyber-panel flex flex-col justify-between border-r border-cyber-border select-none flex-shrink-0 relative z-10">
-      {/* Top Server Header Dropdown */}
-      <div className="relative">
+    <div className="w-60 bg-cyber-panel flex flex-col h-full border-r border-cyber-border select-none relative z-10">
+      {/* Server Header Dropdown Menu */}
+      <div className="relative border-b border-cyber-border">
         <button
           onClick={() => setShowServerMenu(!showServerMenu)}
-          className="w-full h-14 px-4 border-b border-cyber-border flex items-center justify-between font-bold text-white hover:bg-white/5 transition-all duration-200 text-sm shadow-sm"
+          className="w-full h-14 px-4 flex items-center justify-between font-extrabold text-white hover:bg-cyber-hover transition-colors"
         >
-          <span className="truncate flex items-center space-x-1.5">
-            <Sparkles className="w-4 h-4 text-cyber-cyan" />
-            <span>{activeServer.name}</span>
-          </span>
-          <ChevronDown className={`w-4 h-4 text-cyber-muted transition-transform duration-200 ${showServerMenu ? 'rotate-180 text-white' : ''}`} />
+          <div className="flex items-center space-x-2 min-w-0">
+            <span className="truncate text-sm">{activeServer.name}</span>
+            <Sparkles className="w-3.5 h-3.5 text-cyber-cyan flex-shrink-0" />
+          </div>
+          <ChevronDown className={`w-4 h-4 text-cyber-muted transition-transform duration-200 ${showServerMenu ? 'rotate-180' : ''}`} />
         </button>
 
-        {/* Server Options Glass Dropdown */}
         {showServerMenu && (
-          <div className="absolute top-16 left-2 right-2 glass-panel rounded-2xl shadow-2xl p-2 z-50 animate-fade-in text-xs space-y-1">
+          <div className="absolute top-16 left-2 right-2 z-50 bg-cyber-chat border border-cyber-border rounded-2xl p-2 shadow-2xl space-y-1 animate-fade-in backdrop-blur-md">
             <button
               onClick={() => {
+                setShowServerMenu(false);
                 onOpenInviteModal();
-                setShowServerMenu(false);
               }}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-cyber-violet hover:text-white text-cyber-cyan font-bold transition-all duration-200"
+              className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-bold text-cyber-cyan hover:bg-cyber-cyan/10 transition-colors"
             >
-              <span>Invite People</span>
               <UserPlus className="w-4 h-4" />
+              <span>Invite People</span>
             </button>
             <button
               onClick={() => {
-                onOpenCreateChannel();
                 setShowServerMenu(false);
-              }}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-cyber-hover text-cyber-text font-medium transition-all duration-200"
-            >
-              <span>Create Channel</span>
-              <Plus className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => {
-                onOpenCreateCategory();
-                setShowServerMenu(false);
-              }}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-cyber-hover text-cyber-text font-medium transition-all duration-200"
-            >
-              <span>Create Category</span>
-              <Plus className="w-4 h-4" />
-            </button>
-            <div className="h-px bg-cyber-border my-1" />
-            <button
-              onClick={() => {
                 onOpenServerSettings();
-                setShowServerMenu(false);
               }}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-cyber-hover text-cyber-text font-medium transition-all duration-200"
+              className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-bold text-cyber-text hover:bg-cyber-hover transition-colors"
             >
+              <Settings className="w-4 h-4 text-cyber-muted" />
               <span>Server Settings</span>
-              <Settings className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => {
+                setShowServerMenu(false);
+                onOpenCreateCategory();
+              }}
+              className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-bold text-cyber-text hover:bg-cyber-hover transition-colors"
+            >
+              <Plus className="w-4 h-4 text-cyber-muted" />
+              <span>Create Category</span>
+            </button>
+            <button
+              onClick={() => {
+                setShowServerMenu(false);
+                onOpenCreateChannel();
+              }}
+              className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-bold text-cyber-text hover:bg-cyber-hover transition-colors"
+            >
+              <Plus className="w-4 h-4 text-cyber-muted" />
+              <span>Create Channel</span>
             </button>
           </div>
         )}
       </div>
 
       {/* Channel Categories & Channels List */}
-      <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
+      <div className="flex-1 overflow-y-auto p-3 space-y-4 custom-scrollbar">
         {activeServer.categories?.map((category) => {
           const isCollapsed = collapsedCategories[category.id];
 
           return (
             <div key={category.id} className="space-y-1">
-              {/* Category Header */}
               <div className="flex items-center justify-between text-cyber-muted hover:text-white px-2 py-1 group cursor-pointer">
                 <button
                   onClick={() => toggleCategory(category.id)}
                   className="flex items-center space-x-1.5 text-[11px] font-extrabold uppercase tracking-wider min-w-0"
                 >
-                  {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  {isCollapsed ? (
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  )}
                   <span className="truncate">{category.name}</span>
                 </button>
                 <button
@@ -161,43 +212,46 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
                     const isVoice = channel.type === 'VOICE';
 
                     return (
-                      <div
-                        key={channel.id}
-                        onClick={() => {
-                          if (isVoice) {
-                            handleVoiceConnect(channel);
-                          } else {
-                            selectChannel(channel);
-                          }
-                        }}
-                        className={`group flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all duration-200 ${
-                          isSelected
-                            ? 'bg-cyber-cyan/10 text-white border border-cyber-cyan/30 shadow-glow-cyan'
-                            : 'text-cyber-muted hover:bg-cyber-hover hover:text-cyber-text'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-2 min-w-0 truncate">
-                          {isVoice ? (
-                            <Volume2 className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-cyber-cyan' : 'text-cyber-emerald'}`} />
-                          ) : (
-                            <Hash className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-cyber-cyan' : 'text-cyber-muted'}`} />
-                          )}
-                          <span className="truncate">{channel.name}</span>
-                        </div>
-
-                        {/* Delete channel icon */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm(`Delete channel #${channel.name}?`)) {
-                              deleteChannel(channel.id);
+                      <div key={channel.id} className="space-y-1">
+                        <div
+                          onClick={() => {
+                            if (isVoice) {
+                              handleVoiceConnect(channel);
+                            } else {
+                              selectChannel(channel);
                             }
                           }}
-                          className="opacity-0 group-hover:opacity-100 p-1 text-cyber-muted hover:text-cyber-rose hover:bg-cyber-rose/10 rounded-md transition-all"
-                          title="Delete Channel"
+                          className={`group flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all duration-200 ${
+                            isSelected
+                              ? 'bg-cyber-cyan/10 text-white border border-cyber-cyan/30 shadow-glow-cyan'
+                              : 'text-cyber-muted hover:bg-cyber-hover hover:text-cyber-text'
+                          }`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                          <div className="flex items-center space-x-2 min-w-0 truncate">
+                            {isVoice ? (
+                              <Volume2 className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-cyber-cyan' : 'text-cyber-emerald'}`} />
+                            ) : (
+                              <Hash className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-cyber-cyan' : 'text-cyber-muted'}`} />
+                            )}
+                            <span className="truncate">{channel.name}</span>
+                          </div>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm(`Delete channel #${channel.name}?`)) {
+                                deleteChannel(channel.id);
+                              }
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-1 text-cyber-muted hover:text-cyber-rose hover:bg-cyber-rose/10 rounded-md transition-all"
+                            title="Delete Channel"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Real-time Voice Participant List under Voice Channels */}
+                        {isVoice && renderVoiceParticipantList(channel.id)}
                       </div>
                     );
                   })}
@@ -236,31 +290,34 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
                 {uncategorizedVoice.map((channel) => {
                   const isSelected = activeChannel?.id === channel.id;
                   return (
-                    <div
-                      key={channel.id}
-                      onClick={() => handleVoiceConnect(channel)}
-                      className={`group flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all duration-200 ${
-                        isSelected
-                          ? 'bg-cyber-cyan/10 text-white border border-cyber-cyan/30 shadow-glow-cyan'
-                          : 'text-cyber-muted hover:bg-cyber-hover hover:text-cyber-text'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-2 min-w-0 truncate">
-                        <Volume2 className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-cyber-cyan' : 'text-cyber-emerald'}`} />
-                        <span className="truncate">{channel.name}</span>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm(`Delete channel #${channel.name}?`)) {
-                            deleteChannel(channel.id);
-                          }
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-1 text-cyber-muted hover:text-cyber-rose hover:bg-cyber-rose/10 rounded-md transition-all"
-                        title="Delete Channel"
+                    <div key={channel.id} className="space-y-1">
+                      <div
+                        onClick={() => handleVoiceConnect(channel)}
+                        className={`group flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all duration-200 ${
+                          isSelected
+                            ? 'bg-cyber-cyan/10 text-white border border-cyber-cyan/30 shadow-glow-cyan'
+                            : 'text-cyber-muted hover:bg-cyber-hover hover:text-cyber-text'
+                        }`}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                        <div className="flex items-center space-x-2 min-w-0 truncate">
+                          <Volume2 className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-cyber-cyan' : 'text-cyber-emerald'}`} />
+                          <span className="truncate">{channel.name}</span>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`Delete channel #${channel.name}?`)) {
+                              deleteChannel(channel.id);
+                            }
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-cyber-muted hover:text-cyber-rose hover:bg-cyber-rose/10 rounded-md transition-all"
+                          title="Delete Channel"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {renderVoiceParticipantList(channel.id)}
                     </div>
                   );
                 })}
@@ -332,48 +389,35 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
         )}
       </div>
 
-      {/* WebRTC Voice Active Connection Bar */}
+      {/* Connected Voice Channel Quick Control Banner */}
       {connectedVoiceChannel && (
-        <div className="bg-cyber-input px-3 py-2.5 border-t border-cyber-border text-xs flex items-center justify-between shadow-xl">
+        <div className="bg-cyber-emerald/10 border-t border-cyber-emerald/30 p-2.5 flex items-center justify-between">
           <div
             onClick={() => selectChannel(connectedVoiceChannel)}
-            className="min-w-0 cursor-pointer hover:underline"
+            className="flex items-center space-x-2 min-w-0 cursor-pointer"
           >
-            <div className="text-cyber-emerald font-bold flex items-center space-x-1.5 text-[11px]">
-              <span className="w-2 h-2 rounded-full bg-cyber-emerald animate-ping" />
-              <span>Voice Connected</span>
-            </div>
-            <div className="text-cyber-muted text-[11px] truncate">
-              {activeServer.name} / {connectedVoiceChannel.name}
+            <Volume2 className="w-4 h-4 text-cyber-emerald animate-pulse flex-shrink-0" />
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] text-cyber-emerald font-extrabold uppercase">Voice Connected</div>
+              <div className="text-xs font-bold text-white truncate">
+                {activeServer.name} / {connectedVoiceChannel.name}
+              </div>
             </div>
           </div>
-
-          <div className="flex items-center space-x-1.5">
-            {/* Share Screen Quick Action Button */}
-            <button
-              onClick={() => selectChannel(connectedVoiceChannel)}
-              className="p-2 bg-aurora-gradient hover:bg-aurora-hover text-white rounded-xl shadow-glow-violet transition-all duration-200"
-              title="Share Screen (1080p 60fps)"
-            >
-              <Monitor className="w-4 h-4" />
-            </button>
-
-            {/* Disconnect Voice */}
-            <button
-              onClick={() => setConnectedVoiceChannel(null)}
-              className="p-2 bg-cyber-rose/20 text-cyber-rose hover:bg-cyber-rose hover:text-white rounded-xl transition-all duration-200 border border-cyber-rose/30"
-              title="Disconnect Voice"
-            >
-              <PhoneOff className="w-4 h-4" />
-            </button>
-          </div>
+          <button
+            onClick={() => setConnectedVoiceChannel(null)}
+            className="p-1.5 rounded-lg bg-cyber-rose/20 text-cyber-rose hover:bg-cyber-rose/30 transition-colors ml-2"
+            title="Disconnect Voice"
+          >
+            <PhoneOff className="w-4 h-4" />
+          </button>
         </div>
       )}
 
-      {/* Bottom User Controls Bar */}
+      {/* User Footer Panel */}
       <UserFooter
-        connectedVoiceChannel={connectedVoiceChannel}
         onOpenSettings={onOpenUserSettings}
+        connectedVoiceChannel={connectedVoiceChannel}
       />
     </div>
   );

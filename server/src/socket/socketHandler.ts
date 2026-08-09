@@ -23,6 +23,18 @@ interface VoiceParticipant {
 
 const voiceRooms: { [roomName: string]: { [socketId: string]: VoiceParticipant } } = {};
 
+const getVoiceRoomsSummary = () => {
+  const summary: { [channelId: string]: VoiceParticipant[] } = {};
+  Object.keys(voiceRooms).forEach((roomName) => {
+    const channelId = roomName.replace('voice:', '');
+    const list = Object.values(voiceRooms[roomName]);
+    if (list.length > 0) {
+      summary[channelId] = list;
+    }
+  });
+  return summary;
+};
+
 export function setupSocketHandlers(io: SocketIOServer) {
   // Middleware to authenticate socket connections
   io.use((socket: AuthenticatedSocket, next) => {
@@ -47,6 +59,13 @@ export function setupSocketHandlers(io: SocketIOServer) {
   io.on('connection', (socket: AuthenticatedSocket) => {
     const user = socket.user!;
     console.log(`[Socket] User connected: ${user.username} (${socket.id})`);
+
+    // Send initial voice rooms summary on connection
+    socket.emit('voice:room-summary', getVoiceRoomsSummary());
+
+    socket.on('voice:get-room-summary', () => {
+      socket.emit('voice:room-summary', getVoiceRoomsSummary());
+    });
 
     const handleJoinChannel = (channelId: string) => {
       socket.join(`channel:${channelId}`);
@@ -101,6 +120,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
           }
         }
       });
+      io.emit('voice:room-summary', getVoiceRoomsSummary());
     };
 
     // Voice Channel WebRTC Signaling & Real-time Participant State
@@ -147,6 +167,9 @@ export function setupSocketHandlers(io: SocketIOServer) {
       // Broadcast complete room participant list to all sockets in room
       io.to(roomName).emit('voice:participants', Object.values(voiceRooms[roomName]));
 
+      // Broadcast global voice room summary for sidebar previews
+      io.emit('voice:room-summary', getVoiceRoomsSummary());
+
       // Notify existing peers that a new user joined
       socket.to(roomName).emit('voice:user-joined', {
         socketId: socket.id,
@@ -181,6 +204,8 @@ export function setupSocketHandlers(io: SocketIOServer) {
           isDeafened: p.isDeafened,
           isSpeaking: p.isSpeaking,
         });
+
+        io.emit('voice:room-summary', getVoiceRoomsSummary());
       }
     });
 

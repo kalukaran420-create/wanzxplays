@@ -9,6 +9,7 @@ import {
   Monitor,
   MonitorOff,
   Maximize2,
+  Minimize2,
   Volume2,
   Mic,
   MicOff,
@@ -48,6 +49,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
 
   const [isMuted, setIsMuted] = useState(false);
   const [isDeafened, setIsDeafened] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
   const [isSoundboardOpen, setIsSoundboardOpen] = useState(false);
   const [soundVolume, setSoundVolumeState] = useState<number>(() => {
     const saved = localStorage.getItem('pulsecord_soundboard_volume');
@@ -194,6 +196,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
     (node: HTMLVideoElement | null) => {
       videoElementRef.current = node;
       if (node && activeStream) {
+        console.log('🎥 [VoiceChannelView] Attaching activeStream to video element:', activeStream);
         node.srcObject = activeStream;
       }
     },
@@ -203,6 +206,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
   useEffect(() => {
     if (videoElementRef.current) {
       if (activeStream) {
+        console.log('🎥 [VoiceChannelView] Effect attaching activeStream to video element:', activeStream);
         videoElementRef.current.srcObject = activeStream;
       } else {
         videoElementRef.current.srcObject = null;
@@ -210,7 +214,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
     }
   }, [activeStream]);
 
-  const toggleFullscreen = () => {
+  const toggleNativeFullscreen = () => {
     if (videoElementRef.current) {
       if (document.fullscreenElement) {
         document.exitFullscreen();
@@ -282,14 +286,21 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
         {/* Screen Share Mode vs Participant Grid Mode */}
         {activeStream ? (
           <div className="flex-1 w-full max-w-5xl flex flex-col items-center justify-center space-y-4 h-full min-h-0">
-            {/* Screen Share Stage */}
-            <div className="relative w-full flex-1 flex flex-col items-center justify-center rounded-3xl overflow-hidden shadow-2xl border border-cyber-cyan/30 shadow-glow-cyan group bg-black">
+            {/* Screen Share Stage with Viewer Maximize / Restore Controls */}
+            <div
+              className={`relative transition-all duration-300 ${
+                isMaximized
+                  ? 'fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-4'
+                  : 'relative w-full flex-1 flex flex-col items-center justify-center rounded-3xl overflow-hidden shadow-2xl border border-cyber-cyan/30 shadow-glow-cyan group bg-black'
+              }`}
+            >
+              {/* Live Video Frame */}
               <video
                 ref={videoCallbackRef}
                 autoPlay
                 playsInline
                 muted={isSharing}
-                className="w-full h-full object-contain bg-black"
+                className="w-full h-full object-contain bg-black rounded-2xl"
               />
 
               {/* Presenter Header Label */}
@@ -302,10 +313,30 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
                 </span>
               </div>
 
-              {/* Video Controls Overlay */}
-              <div className="absolute bottom-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-2 bg-black/70 backdrop-blur-md p-2 rounded-2xl border border-white/10">
+              {/* Viewer Maximize & Fullscreen Overlay Controls (Visible on Hover) */}
+              <div className="absolute bottom-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-2 bg-black/80 backdrop-blur-md p-2 rounded-2xl border border-white/10 shadow-2xl">
+                {/* Maximize / Restore View Button */}
                 <button
-                  onClick={toggleFullscreen}
+                  onClick={() => setIsMaximized(!isMaximized)}
+                  className="px-3 py-1.5 text-white/90 hover:text-white rounded-xl hover:bg-white/10 transition-colors flex items-center space-x-1.5 text-xs font-extrabold"
+                  title={isMaximized ? 'Restore View' : 'Maximize Screen Share'}
+                >
+                  {isMaximized ? (
+                    <>
+                      <Minimize2 className="w-4 h-4 text-cyber-cyan" />
+                      <span>Restore View</span>
+                    </>
+                  ) : (
+                    <>
+                      <Maximize2 className="w-4 h-4 text-cyber-cyan" />
+                      <span>Maximize View</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Native Fullscreen Button */}
+                <button
+                  onClick={toggleNativeFullscreen}
                   className="p-2 text-white/80 hover:text-white rounded-xl hover:bg-white/10 transition-colors"
                   title="Toggle Fullscreen"
                 >
@@ -315,50 +346,52 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
             </div>
 
             {/* Bottom Compact Participant Strip */}
-            <div className="w-full max-w-5xl flex items-center justify-center space-x-3 overflow-x-auto p-2.5 bg-cyber-panel/80 backdrop-blur-md rounded-2xl border border-cyber-border">
-              {participants.map((p) => {
-                const isSelf = p.userId === user?.id || p.socketId === socket?.id;
-                const pMuted = isSelf ? isMuted : p.isMuted;
-                const pDeafened = isSelf ? isDeafened : p.isDeafened;
-                const pSpeaking = isSelf ? isLocalSpeaking : p.isSpeaking;
+            {!isMaximized && (
+              <div className="w-full max-w-5xl flex items-center justify-center space-x-3 overflow-x-auto p-2.5 bg-cyber-panel/80 backdrop-blur-md rounded-2xl border border-cyber-border">
+                {participants.map((p) => {
+                  const isSelf = p.userId === user?.id || p.socketId === socket?.id;
+                  const pMuted = isSelf ? isMuted : p.isMuted;
+                  const pDeafened = isSelf ? isDeafened : p.isDeafened;
+                  const pSpeaking = isSelf ? isLocalSpeaking : p.isSpeaking;
 
-                return (
-                  <div
-                    key={p.socketId}
-                    className={`flex items-center space-x-2.5 px-3 py-1.5 rounded-xl border transition-all duration-200 ${
-                      pSpeaking
-                        ? 'bg-cyber-emerald/20 border-cyber-emerald shadow-glow-emerald'
-                        : 'bg-black/40 border-white/10'
-                    }`}
-                  >
-                    <div className="relative">
-                      <img
-                        src={p.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p.username)}`}
-                        alt={p.username}
-                        className={`w-8 h-8 rounded-full object-cover transition-all ${
-                          pSpeaking ? 'ring-2 ring-cyber-emerald scale-105' : ''
-                        }`}
-                      />
-                      {(pMuted || pDeafened) && (
-                        <div className="absolute -bottom-1 -right-1 p-0.5 rounded-full bg-cyber-rose text-white border border-[#0a0b10]">
-                          {pDeafened ? <Headphones className="w-2.5 h-2.5" /> : <MicOff className="w-2.5 h-2.5" />}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <span className="text-xs font-extrabold text-white max-w-[80px] truncate">
-                        {p.displayName || p.username}
-                      </span>
-                      {isSelf && (
-                        <span className="text-[8px] bg-cyber-violet/30 text-cyber-violet px-1.5 py-0.2 rounded-full font-mono">
-                          YOU
+                  return (
+                    <div
+                      key={p.socketId}
+                      className={`flex items-center space-x-2.5 px-3 py-1.5 rounded-xl border transition-all duration-200 ${
+                        pSpeaking
+                          ? 'bg-cyber-emerald/20 border-cyber-emerald shadow-glow-emerald'
+                          : 'bg-black/40 border-white/10'
+                      }`}
+                    >
+                      <div className="relative">
+                        <img
+                          src={p.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p.username)}`}
+                          alt={p.username}
+                          className={`w-8 h-8 rounded-full object-cover transition-all ${
+                            pSpeaking ? 'ring-2 ring-cyber-emerald scale-105' : ''
+                          }`}
+                        />
+                        {(pMuted || pDeafened) && (
+                          <div className="absolute -bottom-1 -right-1 p-0.5 rounded-full bg-cyber-rose text-white border border-[#0a0b10]">
+                            {pDeafened ? <Headphones className="w-2.5 h-2.5" /> : <MicOff className="w-2.5 h-2.5" />}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <span className="text-xs font-extrabold text-white max-w-[80px] truncate">
+                          {p.displayName || p.username}
                         </span>
-                      )}
+                        {isSelf && (
+                          <span className="text-[8px] bg-cyber-violet/30 text-cyber-violet px-1.5 py-0.2 rounded-full font-mono">
+                            YOU
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ) : (
           /* Grid of Participant Tiles when no screen share is active */

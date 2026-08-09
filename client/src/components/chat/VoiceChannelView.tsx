@@ -62,8 +62,11 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
   const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const activeStream = isSharing ? localStream : Object.values(remoteStreams)[0]?.stream;
-  const activePresenterName = isSharing ? 'You' : presenterInfo?.username || 'Peer Presenter';
+  const remotePresenterObj = Object.values(remoteStreams)[0];
+  const activeStream = isSharing ? localStream : remotePresenterObj?.stream;
+  const activePresenterName = isSharing
+    ? 'You'
+    : presenterInfo?.username || remotePresenterObj?.username || 'Peer Presenter';
 
   // Toggle local mic audio track state in WebRTC & broadcast state update
   const handleToggleMicMute = () => {
@@ -192,27 +195,37 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
     return `${resLabel} @ ${streamStats.frameRate}fps (${streamStats.width}x${streamStats.height})`;
   };
 
+  const attachVideoStream = useCallback((node: HTMLVideoElement | null, stream: MediaStream | null) => {
+    if (!node) return;
+    if (stream) {
+      console.log(`🎥 [Video Pipeline] Attaching MediaStream (id: ${stream.id}, tracks: ${stream.getTracks().length}) to <video> element`);
+      node.srcObject = stream;
+      node.play().then(() => {
+        console.log('🎥 [Video Pipeline] video.play() resolved successfully');
+        setTimeout(() => {
+          console.log(`🎥 [Video Pipeline Check after 500ms] videoDimensions: ${node.videoWidth}x${node.videoHeight}, paused: ${node.paused}, readyState: ${node.readyState}`);
+        }, 500);
+      }).catch((err) => {
+        console.error('🎥 [Video Pipeline] video.play() failed:', err);
+      });
+    } else {
+      node.srcObject = null;
+    }
+  }, []);
+
   const videoCallbackRef = useCallback(
     (node: HTMLVideoElement | null) => {
       videoElementRef.current = node;
-      if (node && activeStream) {
-        console.log('🎥 [VoiceChannelView] Attaching activeStream to video element:', activeStream);
-        node.srcObject = activeStream;
-      }
+      attachVideoStream(node, activeStream || null);
     },
-    [activeStream]
+    [activeStream, attachVideoStream]
   );
 
   useEffect(() => {
     if (videoElementRef.current) {
-      if (activeStream) {
-        console.log('🎥 [VoiceChannelView] Effect attaching activeStream to video element:', activeStream);
-        videoElementRef.current.srcObject = activeStream;
-      } else {
-        videoElementRef.current.srcObject = null;
-      }
+      attachVideoStream(videoElementRef.current, activeStream || null);
     }
-  }, [activeStream]);
+  }, [activeStream, attachVideoStream]);
 
   const toggleNativeFullscreen = () => {
     if (videoElementRef.current) {
@@ -299,7 +312,11 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
                 ref={videoCallbackRef}
                 autoPlay
                 playsInline
-                muted={isSharing}
+                muted
+                onLoadedMetadata={(e) => {
+                  const v = e.currentTarget;
+                  console.log(`🎥 [Video Pipeline] onLoadedMetadata fired! Dimensions: ${v.videoWidth}x${v.videoHeight}`);
+                }}
                 className="w-full h-full object-contain bg-black rounded-2xl"
               />
 

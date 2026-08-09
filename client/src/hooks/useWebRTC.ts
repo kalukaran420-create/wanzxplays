@@ -40,6 +40,7 @@ export const useWebRTC = (channelId: string | null) => {
   const localStreamRef = useRef<MediaStream | null>(null);
   const localAudioStreamRef = useRef<MediaStream | null>(null);
   const presenterInfoRef = useRef<{ username: string; socketId: string } | null>(null);
+  const peerUsernamesRef = useRef<{ [socketId: string]: string }>({});
   const roomPeersRef = useRef<string[]>([]);
 
   const STUN_SERVERS: RTCConfiguration = {
@@ -58,13 +59,13 @@ export const useWebRTC = (channelId: string | null) => {
         params.degradationPreference = 'maintain-framerate';
 
         sender.setParameters(params).then(() => {
-          console.log('🎥 [WebRTC] Set maxBitrate=7,000,000 bps (7 Mbps)');
+          console.log('🎥 [WebRTC Pipeline] Set maxBitrate=7,000,000 bps (7 Mbps)');
         }).catch((err) => {
-          console.warn('🎥 [WebRTC] Bitrate setParameters warning:', err);
+          console.warn('🎥 [WebRTC Pipeline] Bitrate setParameters warning:', err);
         });
       }
     } catch (e) {
-      console.warn('🎥 [WebRTC] Failed setting maxBitrate parameter:', e);
+      console.warn('🎥 [WebRTC Pipeline] Failed setting maxBitrate parameter:', e);
     }
   };
 
@@ -74,14 +75,14 @@ export const useWebRTC = (channelId: string | null) => {
       return peerConnectionsRef.current[targetSocketId];
     }
 
-    console.log(`🎥 [WebRTC] Creating RTCPeerConnection for target peer: ${targetSocketId}`);
+    console.log(`🎥 [WebRTC Pipeline] Creating RTCPeerConnection for target peer: ${targetSocketId}`);
     const pc = new RTCPeerConnection(STUN_SERVERS);
     peerConnectionsRef.current[targetSocketId] = pc;
 
     // Attach local mic audio stream tracks if available
     if (localAudioStreamRef.current) {
       localAudioStreamRef.current.getAudioTracks().forEach((track) => {
-        console.log(`🎙️ [WebRTC] Attaching mic audio track (${track.label}) to peer ${targetSocketId}`);
+        console.log(`🎙️ [WebRTC Pipeline] Attaching mic audio track (${track.label}) to peer ${targetSocketId}`);
         pc.addTrack(track, localAudioStreamRef.current!);
       });
     }
@@ -108,7 +109,7 @@ export const useWebRTC = (channelId: string | null) => {
 
     // Track handler (receive remote video & audio)
     pc.ontrack = (event) => {
-      console.log(`🎥 [WebRTC] Received remote stream track (${event.track.kind}) from ${targetSocketId}:`, event.streams[0]);
+      console.log(`🎥 [WebRTC Pipeline] ontrack fired! targetSocketId: ${targetSocketId}, kind: ${event.track.kind}, readyState: ${event.track.readyState}, enabled: ${event.track.enabled}`);
       if (event.receiver && 'playoutDelayHint' in event.receiver) {
         (event.receiver as any).playoutDelayHint = 0;
       }
@@ -118,7 +119,7 @@ export const useWebRTC = (channelId: string | null) => {
 
         // Handle remote microphone audio stream
         if (event.track.kind === 'audio') {
-          console.log(`🔊 [WebRTC] Setting remote audio stream for peer ${targetSocketId}`);
+          console.log(`🔊 [WebRTC Pipeline] Attached remote audio track for peer ${targetSocketId}`);
           setRemoteAudioStreams((prev) => ({
             ...prev,
             [targetSocketId]: stream,
@@ -127,7 +128,9 @@ export const useWebRTC = (channelId: string | null) => {
 
         // Handle remote video stream for screen share
         if (event.track.kind === 'video') {
-          console.log(`🎥 [WebRTC] Setting remote video screen share stream for peer ${targetSocketId}`);
+          const peerUsername = peerUsernamesRef.current[targetSocketId] || presenterInfoRef.current?.username || 'Peer Presenter';
+          console.log(`🎥 [WebRTC Pipeline] Attached remote video track for peer ${targetSocketId} (username: ${peerUsername})`);
+
           const vTrack = stream.getVideoTracks()[0];
           if (vTrack) {
             const settings = vTrack.getSettings();
@@ -142,7 +145,7 @@ export const useWebRTC = (channelId: string | null) => {
             ...prev,
             [targetSocketId]: {
               stream,
-              username: presenterInfoRef.current?.username || 'Peer Presenter',
+              username: peerUsername,
             },
           }));
         }
@@ -150,7 +153,7 @@ export const useWebRTC = (channelId: string | null) => {
     };
 
     pc.oniceconnectionstatechange = () => {
-      console.log(`🎥 [WebRTC] ICE Connection State with ${targetSocketId}: ${pc.iceConnectionState}`);
+      console.log(`🎥 [WebRTC Pipeline] ICE Connection State with ${targetSocketId}: ${pc.iceConnectionState}`);
       if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed') {
         pc.close();
         delete peerConnectionsRef.current[targetSocketId];
@@ -175,14 +178,14 @@ export const useWebRTC = (channelId: string | null) => {
     if (localAudioStreamRef.current) {
       localAudioStreamRef.current.getAudioTracks().forEach((track) => {
         track.enabled = !muted;
-        console.log(`🎙️ [WebRTC] Toggled mic track enabled = ${!muted} (${track.label})`);
+        console.log(`🎙️ [WebRTC Pipeline] Toggled mic track enabled = ${!muted} (${track.label})`);
       });
     }
   }, []);
 
   // Cleanly teardown and stop screen sharing tracks
   const stopScreenShare = useCallback(() => {
-    console.log('🎥 [WebRTC] Stopping local screen share stream');
+    console.log('🎥 [WebRTC Pipeline] Stopping local screen share stream');
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => {
         track.stop();
@@ -201,9 +204,13 @@ export const useWebRTC = (channelId: string | null) => {
             pc.removeTrack(videoSender);
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
-            socket?.emit('webrtc:offer', { targetSocketId, offer });
+            socket?.emit('webrtc:offer', {
+              targetSocketId,
+              senderUser: { id: user?.id, username: user?.username },
+              offer,
+            });
           } catch (e) {
-            console.warn('🎥 [WebRTC] Remove video track error:', e);
+            console.warn('🎥 [WebRTC Pipeline] Remove video track error:', e);
           }
         }
       }
@@ -219,12 +226,12 @@ export const useWebRTC = (channelId: string | null) => {
     if (socket && channelId) {
       socket.emit('screen:stop', { channelId });
     }
-  }, [socket, channelId]);
+  }, [socket, channelId, user]);
 
   // Request display media & broadcast video stream to all room peers with WebRTC offer renegotiation
   const startScreenShare = useCallback(async () => {
     setErrorMsg(null);
-    console.log('🎥 [WebRTC] Requesting getDisplayMedia...');
+    console.log('🎥 [WebRTC Pipeline] Requesting getDisplayMedia...');
     try {
       let stream: MediaStream;
 
@@ -275,18 +282,22 @@ export const useWebRTC = (channelId: string | null) => {
             const existingVideoSender = senders.find((s) => s.track?.kind === 'video');
 
             if (existingVideoSender) {
-              console.log(`🎥 [WebRTC] Replacing video track on existing sender for peer ${targetSocketId}`);
+              console.log(`🎥 [WebRTC Pipeline] Replacing video track on existing sender for peer ${targetSocketId}`);
               await existingVideoSender.replaceTrack(videoTrack);
               applyHighBitrateEncoding(existingVideoSender);
             } else {
-              console.log(`🎥 [WebRTC] Adding new video track to PC for peer ${targetSocketId}`);
+              console.log(`🎥 [WebRTC Pipeline] Adding new video track to PC for peer ${targetSocketId}`);
               const sender = pc.addTrack(videoTrack, stream);
               applyHighBitrateEncoding(sender);
             }
 
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
-            socket?.emit('webrtc:offer', { targetSocketId, offer });
+            socket?.emit('webrtc:offer', {
+              targetSocketId,
+              senderUser: { id: user?.id, username: user?.username },
+              offer,
+            });
           }
         }
       });
@@ -318,19 +329,19 @@ export const useWebRTC = (channelId: string | null) => {
     const joinVoiceChannel = async () => {
       // Acquire local mic stream FIRST before signaling room join
       try {
-        console.log('🎙️ [WebRTC] Requesting getUserMedia({ audio: true })...');
+        console.log('🎙️ [WebRTC Pipeline] Requesting getUserMedia({ audio: true })...');
         const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         if (isSubscribed) {
           localAudioStreamRef.current = micStream;
-          console.log('🎙️ [WebRTC] Mic stream captured successfully:', micStream.getAudioTracks()[0]?.label);
+          console.log('🎙️ [WebRTC Pipeline] Mic stream captured successfully:', micStream.getAudioTracks()[0]?.label);
         }
       } catch (err) {
-        console.warn('🎙️ [WebRTC] Mic getUserMedia warning (permission denied or no mic device):', err);
+        console.warn('🎙️ [WebRTC Pipeline] Mic getUserMedia warning (permission denied or no mic device):', err);
       }
 
       if (!isSubscribed) return;
 
-      console.log(`🎥 [WebRTC] Joining voice room for channel ${channelId}`);
+      console.log(`🎥 [WebRTC Pipeline] Joining voice room for channel ${channelId}`);
       socket.emit('voice:join', {
         channelId,
         userProfile: {
@@ -341,10 +352,17 @@ export const useWebRTC = (channelId: string | null) => {
     };
 
     const handleVoicePeers = ({ peers, participants: initialParticipants }: { peers: string[]; participants?: VoiceParticipant[] }) => {
-      console.log('🎥 [WebRTC] Voice peers currently in room:', peers);
+      console.log('🎥 [WebRTC Pipeline] Voice peers currently in room:', peers);
       roomPeersRef.current = peers || [];
       if (initialParticipants) {
         setParticipants(initialParticipants);
+
+        // Map initial participant usernames
+        initialParticipants.forEach((p) => {
+          if (p.socketId && p.username) {
+            peerUsernamesRef.current[p.socketId] = p.username;
+          }
+        });
       }
 
       // Establish WebRTC PeerConnections to all existing room peers with mic audio
@@ -353,7 +371,11 @@ export const useWebRTC = (channelId: string | null) => {
           const pc = createPeerConnection(targetSocketId);
           pc.createOffer().then((offer) => {
             pc.setLocalDescription(offer);
-            socket.emit('webrtc:offer', { targetSocketId, offer });
+            socket.emit('webrtc:offer', {
+              targetSocketId,
+              senderUser: { id: user?.id, username: user?.username },
+              offer,
+            });
           });
         }
       });
@@ -361,6 +383,11 @@ export const useWebRTC = (channelId: string | null) => {
 
     const handleVoiceParticipants = (updatedParticipants: VoiceParticipant[]) => {
       setParticipants(updatedParticipants);
+      updatedParticipants.forEach((p) => {
+        if (p.socketId && p.username) {
+          peerUsernamesRef.current[p.socketId] = p.username;
+        }
+      });
     };
 
     const handleVoiceStateUpdate = (update: { socketId: string; isMuted?: boolean; isDeafened?: boolean; isSpeaking?: boolean }) => {
@@ -369,8 +396,11 @@ export const useWebRTC = (channelId: string | null) => {
       );
     };
 
-    const handleUserJoined = ({ socketId, user: peerUser }: { socketId: string; user: { username: string; displayName?: string; avatar?: string } }) => {
-      console.log(`🎥 [WebRTC] Peer ${peerUser.username} (${socketId}) joined room`);
+    const handleUserJoined = ({ socketId, user: peerUser }: { socketId: string; user: { id: string; username: string; displayName?: string; avatar?: string } }) => {
+      console.log(`🎥 [WebRTC Pipeline] Peer ${peerUser.username} (${socketId}) joined room`);
+      if (peerUser?.username) {
+        peerUsernamesRef.current[socketId] = peerUser.username;
+      }
       if (!roomPeersRef.current.includes(socketId)) {
         roomPeersRef.current.push(socketId);
       }
@@ -378,13 +408,18 @@ export const useWebRTC = (channelId: string | null) => {
       const pc = createPeerConnection(socketId);
       pc.createOffer().then((offer) => {
         pc.setLocalDescription(offer);
-        socket.emit('webrtc:offer', { targetSocketId: socketId, offer });
+        socket.emit('webrtc:offer', {
+          targetSocketId: socketId,
+          senderUser: { id: user?.id, username: user?.username },
+          offer,
+        });
       });
     };
 
     const handleUserLeft = ({ socketId }: { socketId: string }) => {
-      console.log(`🎥 [WebRTC] Peer ${socketId} left room`);
+      console.log(`🎥 [WebRTC Pipeline] Peer ${socketId} left room`);
       roomPeersRef.current = roomPeersRef.current.filter((id) => id !== socketId);
+      delete peerUsernamesRef.current[socketId];
       if (peerConnectionsRef.current[socketId]) {
         peerConnectionsRef.current[socketId].close();
         delete peerConnectionsRef.current[socketId];
@@ -406,8 +441,13 @@ export const useWebRTC = (channelId: string | null) => {
       }
     };
 
-    const handleOffer = async ({ senderSocketId, senderUser, offer }: { senderSocketId: string; senderUser: { username: string }; offer: any }) => {
-      console.log(`🎥 [WebRTC] Received offer from ${senderUser.username} (${senderSocketId})`);
+    const handleOffer = async ({ senderSocketId, senderUser, offer }: { senderSocketId: string; senderUser: { id: string; username: string }; offer: any }) => {
+      console.log(`🎥 [WebRTC Pipeline] Received offer from ${senderUser?.username || senderSocketId}`);
+      if (senderUser?.username) {
+        peerUsernamesRef.current[senderSocketId] = senderUser.username;
+        presenterInfoRef.current = { username: senderUser.username, socketId: senderSocketId };
+        setPresenterInfo(presenterInfoRef.current);
+      }
       const pc = createPeerConnection(senderSocketId);
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
       const answer = await pc.createAnswer();
@@ -417,7 +457,7 @@ export const useWebRTC = (channelId: string | null) => {
     };
 
     const handleAnswer = async ({ senderSocketId, answer }: { senderSocketId: string; answer: any }) => {
-      console.log(`🎥 [WebRTC] Received answer from ${senderSocketId}`);
+      console.log(`🎥 [WebRTC Pipeline] Received answer from ${senderSocketId}`);
       const pc = peerConnectionsRef.current[senderSocketId];
       if (pc) {
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
@@ -432,13 +472,16 @@ export const useWebRTC = (channelId: string | null) => {
     };
 
     const handleScreenStart = ({ presenterSocketId, presenterUser }: { presenterSocketId: string; presenterUser: { username: string } }) => {
-      console.log(`🎥 [WebRTC] Screen share started by ${presenterUser.username} (${presenterSocketId})`);
-      presenterInfoRef.current = { username: presenterUser.username, socketId: presenterSocketId };
+      console.log(`🎥 [WebRTC Pipeline] Screen share started by ${presenterUser?.username || presenterSocketId}`);
+      if (presenterUser?.username) {
+        peerUsernamesRef.current[presenterSocketId] = presenterUser.username;
+      }
+      presenterInfoRef.current = { username: presenterUser?.username || 'Peer Presenter', socketId: presenterSocketId };
       setPresenterInfo(presenterInfoRef.current);
     };
 
     const handleScreenStop = ({ presenterSocketId }: { presenterSocketId: string }) => {
-      console.log(`🎥 [WebRTC] Screen share stopped by ${presenterSocketId}`);
+      console.log(`🎥 [WebRTC Pipeline] Screen share stopped by ${presenterSocketId}`);
       setRemoteStreams((prev) => {
         const updated = { ...prev };
         delete updated[presenterSocketId];

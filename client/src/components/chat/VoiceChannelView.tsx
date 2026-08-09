@@ -198,6 +198,10 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
   const attachVideoStream = useCallback((node: HTMLVideoElement | null, stream: MediaStream | null) => {
     if (!node) return;
     if (stream) {
+      // Prevent duplicate re-assignment if stream is ALREADY assigned to node.srcObject
+      if (node.srcObject === stream) {
+        return;
+      }
       node.srcObject = stream;
       console.log('STREAM ATTACHED:', node.srcObject);
       node.play().then(() => {

@@ -42,6 +42,11 @@ export const useWebRTC = (channelId: string | null) => {
   const presenterInfoRef = useRef<{ username: string; socketId: string } | null>(null);
   const peerUsernamesRef = useRef<{ [socketId: string]: string }>({});
   const roomPeersRef = useRef<string[]>([]);
+  const userRef = useRef(user);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   const STUN_SERVERS: RTCConfiguration = {
     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
@@ -202,13 +207,15 @@ export const useWebRTC = (channelId: string | null) => {
         if (videoSender) {
           try {
             pc.removeTrack(videoSender);
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            socket?.emit('webrtc:offer', {
-              targetSocketId,
-              senderUser: { id: user?.id, username: user?.username },
-              offer,
-            });
+            if (pc.signalingState === 'stable') {
+              const offer = await pc.createOffer();
+              await pc.setLocalDescription(offer);
+              socket?.emit('webrtc:offer', {
+                targetSocketId,
+                senderUser: { id: userRef.current?.id, username: userRef.current?.username },
+                offer,
+              });
+            }
           } catch (e) {
             console.warn('🎥 [WebRTC Pipeline] Remove video track error:', e);
           }
@@ -226,7 +233,7 @@ export const useWebRTC = (channelId: string | null) => {
     if (socket && channelId) {
       socket.emit('screen:stop', { channelId });
     }
-  }, [socket, channelId, user]);
+  }, [socket, channelId]);
 
   // Request display media & broadcast video stream to all room peers with WebRTC offer renegotiation
   const startScreenShare = useCallback(async () => {
@@ -269,7 +276,7 @@ export const useWebRTC = (channelId: string | null) => {
       setLocalStream(stream);
       setIsSharing(true);
 
-      const info = { username: user?.username || 'You', socketId: socket?.id || '' };
+      const info = { username: userRef.current?.username || 'You', socketId: socket?.id || '' };
       presenterInfoRef.current = info;
       setPresenterInfo(info);
 
@@ -291,13 +298,15 @@ export const useWebRTC = (channelId: string | null) => {
               applyHighBitrateEncoding(sender);
             }
 
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            socket?.emit('webrtc:offer', {
-              targetSocketId,
-              senderUser: { id: user?.id, username: user?.username },
-              offer,
-            });
+            if (pc.signalingState === 'stable') {
+              const offer = await pc.createOffer();
+              await pc.setLocalDescription(offer);
+              socket?.emit('webrtc:offer', {
+                targetSocketId,
+                senderUser: { id: userRef.current?.id, username: userRef.current?.username },
+                offer,
+              });
+            }
           }
         }
       });
@@ -318,7 +327,7 @@ export const useWebRTC = (channelId: string | null) => {
         setErrorMsg('Failed to start screen share: ' + (err.message || 'Unknown error'));
       }
     }
-  }, [socket, channelId, user, createPeerConnection, stopScreenShare]);
+  }, [socket, channelId, createPeerConnection, stopScreenShare]);
 
   // Handle voice channel join and socket signaling events with prior mic audio acquisition
   useEffect(() => {
@@ -345,8 +354,8 @@ export const useWebRTC = (channelId: string | null) => {
       socket.emit('voice:join', {
         channelId,
         userProfile: {
-          displayName: user?.displayName || user?.username,
-          avatar: user?.avatar,
+          displayName: userRef.current?.displayName || userRef.current?.username,
+          avatar: userRef.current?.avatar,
         },
       });
     };
@@ -369,14 +378,16 @@ export const useWebRTC = (channelId: string | null) => {
       (peers || []).forEach((targetSocketId) => {
         if (targetSocketId && targetSocketId !== socket.id) {
           const pc = createPeerConnection(targetSocketId);
-          pc.createOffer().then((offer) => {
-            pc.setLocalDescription(offer);
-            socket.emit('webrtc:offer', {
-              targetSocketId,
-              senderUser: { id: user?.id, username: user?.username },
-              offer,
+          if (pc.signalingState === 'stable') {
+            pc.createOffer().then((offer) => {
+              pc.setLocalDescription(offer);
+              socket.emit('webrtc:offer', {
+                targetSocketId,
+                senderUser: { id: userRef.current?.id, username: userRef.current?.username },
+                offer,
+              });
             });
-          });
+          }
         }
       });
     };
@@ -406,14 +417,16 @@ export const useWebRTC = (channelId: string | null) => {
       }
 
       const pc = createPeerConnection(socketId);
-      pc.createOffer().then((offer) => {
-        pc.setLocalDescription(offer);
-        socket.emit('webrtc:offer', {
-          targetSocketId: socketId,
-          senderUser: { id: user?.id, username: user?.username },
-          offer,
+      if (pc.signalingState === 'stable') {
+        pc.createOffer().then((offer) => {
+          pc.setLocalDescription(offer);
+          socket.emit('webrtc:offer', {
+            targetSocketId: socketId,
+            senderUser: { id: userRef.current?.id, username: userRef.current?.username },
+            offer,
+          });
         });
-      });
+      }
     };
 
     const handleUserLeft = ({ socketId }: { socketId: string }) => {
@@ -449,25 +462,41 @@ export const useWebRTC = (channelId: string | null) => {
         setPresenterInfo(presenterInfoRef.current);
       }
       const pc = createPeerConnection(senderSocketId);
-      await pc.setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
 
-      socket.emit('webrtc:answer', { targetSocketId: senderSocketId, answer });
+        socket.emit('webrtc:answer', { targetSocketId: senderSocketId, answer });
+      } catch (err) {
+        console.warn(`🎥 [WebRTC Pipeline] Ignored duplicate offer in signalingState: ${pc.signalingState}`, err);
+      }
     };
 
     const handleAnswer = async ({ senderSocketId, answer }: { senderSocketId: string; answer: any }) => {
       console.log(`🎥 [WebRTC Pipeline] Received answer from ${senderSocketId}`);
       const pc = peerConnectionsRef.current[senderSocketId];
       if (pc) {
-        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        if (pc.signalingState === 'have-local-offer') {
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(answer));
+          } catch (err) {
+            console.warn(`🎥 [WebRTC Pipeline] Error setting remote answer:`, err);
+          }
+        } else {
+          console.warn(`🎥 [WebRTC Pipeline] Skipping setRemoteDescription for answer because signalingState is already: ${pc.signalingState}`);
+        }
       }
     };
 
     const handleIceCandidate = async ({ senderSocketId, candidate }: { senderSocketId: string; candidate: any }) => {
       const pc = peerConnectionsRef.current[senderSocketId];
-      if (pc) {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      if (pc && pc.remoteDescription) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (err) {
+          console.warn(`🎥 [WebRTC Pipeline] Add ICE candidate warning:`, err);
+        }
       }
     };
 
@@ -528,7 +557,7 @@ export const useWebRTC = (channelId: string | null) => {
 
       stopScreenShare();
     };
-  }, [socket, channelId, user, createPeerConnection, stopScreenShare]);
+  }, [socket, channelId, createPeerConnection, stopScreenShare]);
 
   return {
     isSharing,

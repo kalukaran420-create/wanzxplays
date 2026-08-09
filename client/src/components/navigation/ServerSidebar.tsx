@@ -20,7 +20,7 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
   const { servers, activeServer, selectServer } = useServer();
 
   return (
-    <div className="w-[72px] min-w-[72px] max-w-[72px] bg-cyber-base flex flex-col items-center py-3 space-y-2 select-none flex-shrink-0 border-r border-cyber-border z-20">
+    <div className="w-[72px] min-w-[72px] max-w-[72px] bg-cyber-base flex flex-col items-center py-3 space-y-2 select-none flex-shrink-0 border-r border-cyber-border z-20 overflow-x-hidden">
       {/* App Home Button */}
       <div className="relative group flex items-center justify-center w-full">
         <div
@@ -42,7 +42,7 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
       <div className="w-8 h-[2px] bg-cyber-border rounded-full my-1" />
 
       {/* Server List */}
-      <div className="flex-1 w-full space-y-2.5 overflow-y-auto no-scrollbar flex flex-col items-center px-2">
+      <div className="flex-1 w-full space-y-2.5 overflow-y-auto overflow-x-hidden no-scrollbar flex flex-col items-center px-2">
         {servers.map((server) => {
           const isActive = activeView === 'server' && activeServer?.id === server.id;
 

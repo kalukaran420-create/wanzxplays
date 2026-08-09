@@ -30,6 +30,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   const [isGiftModalOpen, setIsGiftModalOpen] = useState(false);
 
   const isAuthor = currentUser?.id === message.authorId;
+  const isMyMessage = isAuthor;
+  const alignRight = !isMyMessage;
 
   const handleSaveEdit = () => {
     if (editContent.trim() && editContent !== message.content) {
@@ -54,9 +56,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   });
 
   return (
-    <div className={`relative group px-6 py-2 hover:bg-cyber-hover/50 transition-all duration-200 rounded-2xl flex items-start space-x-3.5 select-text ${isAuthor ? 'flex-row-reverse space-x-reverse text-right' : ''}`}>
+    <div className={`relative group px-6 py-2 hover:bg-cyber-hover/50 transition-all duration-200 rounded-2xl flex items-start space-x-3.5 select-text ${alignRight ? 'flex-row-reverse space-x-reverse text-right' : ''}`}>
       {/* Floating Action Toolbar on Hover */}
-      <div className={`absolute ${isAuthor ? 'left-6' : 'right-6'} -top-3 hidden group-hover:flex items-center space-x-1 bg-cyber-input border border-cyber-border rounded-xl p-1 shadow-2xl z-20 animate-fade-in`}>
+      <div className={`absolute ${alignRight ? 'left-6' : 'right-6'} -top-3 hidden group-hover:flex items-center space-x-1 bg-cyber-input border border-cyber-border rounded-xl p-1 shadow-2xl z-20 animate-fade-in`}>
         <button
           onClick={() => setShowEmojiPicker(!showEmojiPicker)}
           className="p-1.5 text-cyber-muted hover:text-cyber-cyan hover:bg-white/10 rounded-lg transition-all"
@@ -100,7 +102,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
       {/* Floating Quick Emoji Picker */}
       {showEmojiPicker && (
-        <div className={`absolute ${isAuthor ? 'left-6' : 'right-6'} top-8 bg-cyber-input border border-cyber-border rounded-2xl p-2 shadow-2xl z-30 flex items-center space-x-1 animate-fade-in`}>
+        <div className={`absolute ${alignRight ? 'left-6' : 'right-6'} top-8 bg-cyber-input border border-cyber-border rounded-2xl p-2 shadow-2xl z-30 flex items-center space-x-1 animate-fade-in`}>
           {COMMON_EMOJIS.map((emoji) => (
             <button
               key={emoji}
@@ -129,8 +131,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       </button>
 
       {/* Message Content Container */}
-      <div className={`flex-1 min-w-0 ${isAuthor ? 'flex flex-col items-end text-right' : ''}`}>
-        <div className={`flex items-baseline space-x-2 ${isAuthor ? 'justify-end flex-row-reverse space-x-reverse' : ''}`}>
+      <div className={`flex-1 min-w-0 ${alignRight ? 'flex flex-col items-end text-right' : ''}`}>
+        <div className={`flex items-baseline space-x-2 ${alignRight ? 'justify-end flex-row-reverse space-x-reverse' : ''}`}>
           <button
             onClick={() => message.author && onOpenProfile(message.author)}
             className="font-bold text-sm text-white hover:underline hover:text-cyber-cyan transition-colors flex items-center space-x-1.5"
@@ -168,7 +170,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
         {/* File Attachment */}
         {message.fileUrl && (
-          <div className={`mt-2.5 flex ${isAuthor ? 'justify-end' : ''}`}>
+          <div className={`mt-2.5 flex ${alignRight ? 'justify-end' : ''}`}>
             {message.fileType === 'image' ? (
               <img
                 src={message.fileUrl}
@@ -200,7 +202,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
         {/* Emoji Reactions List */}
         {message.reactions && message.reactions.length > 0 && (
-          <div className={`flex flex-wrap gap-1.5 mt-2 ${isAuthor ? 'justify-end' : ''}`}>
+          <div className={`flex flex-wrap gap-1.5 mt-2 ${alignRight ? 'justify-end' : ''}`}>
             {Object.entries(
               message.reactions.reduce((acc, r) => {
                 acc[r.emoji] = acc[r.emoji] || [];

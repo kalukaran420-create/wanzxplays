@@ -199,7 +199,14 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
     if (!node) return;
     if (stream) {
       if (node.srcObject === stream) return;
+      node.defaultMuted = true;
+      node.muted = true;
+      node.autoplay = true;
+      node.playsInline = true;
       node.srcObject = stream;
+      node.onloadedmetadata = () => {
+        node.play().catch((err) => console.warn('🎥 [VoiceChannelView] Video play warning on metadata:', err));
+      };
       node.play().catch((err) => console.warn('🎥 [VoiceChannelView] Video play warning:', err));
     } else {
       node.srcObject = null;

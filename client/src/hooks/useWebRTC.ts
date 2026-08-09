@@ -107,6 +107,27 @@ export const useWebRTC = (channelId: string | null) => {
 
       // Handle remote video stream for screen share
       if (event.track.kind === 'video') {
+        // Monitor RECEIVER bytesReceived / packetsReceived / framesDecoded for 5 seconds
+        let rTick = 0;
+        const receiverStatsInterval = setInterval(async () => {
+          rTick++;
+          const stats = await pc.getStats();
+          stats.forEach((report) => {
+            if (report.type === 'inbound-rtp' && report.kind === 'video') {
+              console.log(`🎥 [RTP-RECEIVER-STATS] Tick ${rTick}/5:`, {
+                bytesReceived: report.bytesReceived,
+                packetsReceived: report.packetsReceived,
+                packetsLost: report.packetsLost,
+                framesDecoded: report.framesDecoded,
+                framesDropped: report.framesDropped,
+                decoderImplementation: report.decoderImplementation,
+                codecId: report.codecId,
+              });
+            }
+          });
+          if (rTick >= 5) clearInterval(receiverStatsInterval);
+        }, 1000);
+
         const peerUsername = peerUsernamesRef.current[targetSocketId] || presenterInfoRef.current?.username || 'Peer Presenter';
         const stream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
 
@@ -270,11 +291,38 @@ export const useWebRTC = (channelId: string | null) => {
             const videoTransceiver = pc.getTransceivers().find((t) => t.sender.track?.kind === 'video');
             if (videoTransceiver) {
               videoTransceiver.direction = 'sendonly';
+              console.log('🎥 [RTP-SENDER-DIAG] Transceiver direction:', videoTransceiver.direction, 'currentDirection:', videoTransceiver.currentDirection);
             }
+
+            const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
+            if (sender) {
+              console.log('🎥 [RTP-SENDER-DIAG] Sender encodings:', sender.getParameters()?.encodings);
+            }
+
+            // Monitor SENDER bytesSent for 5 seconds
+            let sTick = 0;
+            const senderStatsInterval = setInterval(async () => {
+              sTick++;
+              const stats = await pc.getStats();
+              stats.forEach((report) => {
+                if (report.type === 'outbound-rtp' && report.kind === 'video') {
+                  console.log(`🎥 [RTP-SENDER-STATS] Tick ${sTick}/5:`, {
+                    bytesSent: report.bytesSent,
+                    packetsSent: report.packetsSent,
+                    framesEncoded: report.framesEncoded,
+                    encoderImplementation: report.encoderImplementation,
+                    codecId: report.codecId,
+                    active: report.active,
+                  });
+                }
+              });
+              if (sTick >= 5) clearInterval(senderStatsInterval);
+            }, 1000);
 
             if (pc.signalingState === 'stable') {
               const offer = await pc.createOffer();
               await pc.setLocalDescription(offer);
+              console.log('🎥 [SDP-SENDER-OFFER] Video m-line:', offer.sdp?.split('m=video')[1]?.split('m=')[0]);
               socket?.emit('webrtc:offer', {
                 targetSocketId,
                 senderUser: { id: userRef.current?.id, username: userRef.current?.username },

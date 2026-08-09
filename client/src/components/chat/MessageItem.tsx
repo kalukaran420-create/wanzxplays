@@ -129,7 +129,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       </button>
 
       {/* Message Content Container */}
-      <div className="flex-1 min-w-0">
+      <div className={`flex-1 min-w-0 ${isAuthor ? 'flex flex-col items-end text-right' : ''}`}>
         <div className={`flex items-baseline space-x-2 ${isAuthor ? 'justify-end flex-row-reverse space-x-reverse' : ''}`}>
           <button
             onClick={() => message.author && onOpenProfile(message.author)}

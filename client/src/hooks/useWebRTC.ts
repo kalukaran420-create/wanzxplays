@@ -235,7 +235,15 @@ export const useWebRTC = (channelId: string | null) => {
 
       const videoTrack = stream.getVideoTracks()[0];
       if (videoTrack) {
-        console.log(`🎥 [SENDER DIAGNOSTICS] Screen track acquired: label="${videoTrack.label}", readyState=${videoTrack.readyState}, enabled=${videoTrack.enabled}, muted=${videoTrack.muted}`);
+        // TEMP-DEBUG STEP 1: Log sender local track details
+        console.log('TEMP-DEBUG STEP 1 [SENDER TRACK]:', {
+          label: videoTrack.label,
+          readyState: videoTrack.readyState,
+          muted: videoTrack.muted,
+          enabled: videoTrack.enabled,
+          settings: videoTrack.getSettings(),
+        });
+
         if ('contentHint' in videoTrack) {
           videoTrack.contentHint = 'detail';
         }
@@ -264,20 +272,42 @@ export const useWebRTC = (channelId: string | null) => {
           const pc = createPeerConnection(targetSocketId);
           if (videoTrack) {
             const senders = pc.getSenders();
-            const existingVideoSender = senders.find((s) => s.track?.kind === 'video');
+            let videoSender = senders.find((s) => s.track?.kind === 'video');
 
-            if (existingVideoSender) {
+            if (videoSender) {
               console.log(`🎥 [WebRTC Pipeline] Replacing video track on existing sender for peer ${targetSocketId}`);
-              await existingVideoSender.replaceTrack(videoTrack);
+              await videoSender.replaceTrack(videoTrack);
             } else {
               console.log(`🎥 [WebRTC Pipeline] Adding new video track to PC for peer ${targetSocketId}`);
-              pc.addTrack(videoTrack, stream);
+              videoSender = pc.addTrack(videoTrack, stream);
+            }
+
+            // TEMP-DEBUG STEP 2: Log sender parameters, transceivers, and SDP offer codecs
+            try {
+              const params = videoSender.getParameters();
+              const transceivers = pc.getTransceivers();
+              const videoTransceiver = transceivers.find((t) => t.sender === videoSender);
+              console.log('TEMP-DEBUG STEP 2 [SENDER PARAMS & TRANSCEIVER]:', {
+                targetSocketId,
+                signalingState: pc.signalingState,
+                iceConnectionState: pc.iceConnectionState,
+                transceiverDirection: videoTransceiver?.direction,
+                transceiverCurrentDirection: videoTransceiver?.currentDirection,
+                encodings: params?.encodings,
+              });
+            } catch (e) {
+              console.warn('TEMP-DEBUG STEP 2 warning:', e);
             }
 
             if (pc.signalingState === 'stable') {
               console.log(`🎥 [WebRTC Pipeline] Creating SDP offer for screen share to ${targetSocketId}`);
               const offer = await pc.createOffer();
               await pc.setLocalDescription(offer);
+
+              // TEMP-DEBUG STEP 2: Log SDP video m-line
+              const videoMline = offer.sdp?.split('m=video')[1]?.split('m=')[0];
+              console.log('TEMP-DEBUG STEP 2 [SDP OFFER VIDEO M-LINE]:', videoMline);
+
               socket?.emit('webrtc:offer', {
                 targetSocketId,
                 senderUser: { id: userRef.current?.id, username: userRef.current?.username },
@@ -445,6 +475,10 @@ export const useWebRTC = (channelId: string | null) => {
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
 
+        // TEMP-DEBUG STEP 2: Log SDP answer video m-line on receiver
+        const videoMlineAnswer = answer.sdp?.split('m=video')[1]?.split('m=')[0];
+        console.log('TEMP-DEBUG STEP 2 [SDP ANSWER VIDEO M-LINE]:', videoMlineAnswer);
+
         socket.emit('webrtc:answer', { targetSocketId: senderSocketId, answer });
       } catch (err) {
         console.warn(`🎥 [WebRTC Pipeline] Ignored duplicate offer in signalingState: ${pc.signalingState}`, err);
@@ -458,6 +492,10 @@ export const useWebRTC = (channelId: string | null) => {
         if (pc.signalingState === 'have-local-offer') {
           try {
             await pc.setRemoteDescription(new RTCSessionDescription(answer));
+
+            // TEMP-DEBUG STEP 2: Log SDP answer video m-line on sender
+            const videoMlineAnswer = answer.sdp?.split('m=video')[1]?.split('m=')[0];
+            console.log('TEMP-DEBUG STEP 2 [SDP ANSWER RECEIVED ON SENDER]:', videoMlineAnswer);
           } catch (err) {
             console.warn(`🎥 [WebRTC Pipeline] Error setting remote answer:`, err);
           }

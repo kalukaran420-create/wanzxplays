@@ -217,7 +217,13 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
           p.then(() => {
             console.log('PLAY RESULT:', 'success');
             setTimeout(() => {
-              console.log('VIDEO DIMENSIONS:', node.videoWidth, node.videoHeight, 'READY STATE:', node.readyState, 'IS_SHARING_SENDER:', isSharing);
+              // TEMP-DEBUG STEP 1: Log preview video dimensions
+              console.log('TEMP-DEBUG STEP 1 [VIDEO ELEMENT STATUS]:', {
+                isSharingSender: isSharing,
+                videoWidth: node.videoWidth,
+                videoHeight: node.videoHeight,
+                readyState: node.readyState,
+              });
             }, 2000);
           }).catch((err) => {
             console.log('PLAY RESULT ERROR:', err);
@@ -334,7 +340,13 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
                 muted
                 onLoadedMetadata={(e) => {
                   const v = e.currentTarget;
-                  console.log(`JSX ONLOADEDMETADATA FIRED (isSharing=${isSharing}):`, v.videoWidth, 'x', v.videoHeight, 'readyState:', v.readyState);
+                  // TEMP-DEBUG STEP 1: Log onLoadedMetadata
+                  console.log('TEMP-DEBUG STEP 1 [JSX ONLOADEDMETADATA]:', {
+                    isSharingSender: isSharing,
+                    videoWidth: v.videoWidth,
+                    videoHeight: v.videoHeight,
+                    readyState: v.readyState,
+                  });
                   v.play().then(() => {
                     console.log('PLAY RESULT:', 'success');
                     console.log('VIDEO DIMENSIONS:', v.videoWidth, v.videoHeight, 'READY STATE:', v.readyState);
@@ -344,11 +356,11 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
                 }}
                 onCanPlay={(e) => {
                   const v = e.currentTarget;
-                  console.log(`JSX ONCANPLAY FIRED (isSharing=${isSharing}):`, v.videoWidth, 'x', v.videoHeight);
+                  console.log('TEMP-DEBUG STEP 1 [JSX ONCANPLAY]:', v.videoWidth, 'x', v.videoHeight);
                 }}
                 onPlaying={(e) => {
                   const v = e.currentTarget;
-                  console.log(`JSX ONPLAYING FIRED (isSharing=${isSharing}):`, v.videoWidth, 'x', v.videoHeight);
+                  console.log('TEMP-DEBUG STEP 1 [JSX ONPLAYING]:', v.videoWidth, 'x', v.videoHeight);
                 }}
                 style={{ minHeight: '380px', width: '100%', height: '100%' }}
                 className="w-full h-full min-h-[380px] object-contain bg-black rounded-2xl"

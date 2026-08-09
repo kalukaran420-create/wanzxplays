@@ -196,23 +196,51 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
   };
 
   const attachVideoStream = useCallback((node: HTMLVideoElement | null, stream: MediaStream | null) => {
-    if (!node) return;
+    console.log('ENTERED attachVideoStream:', { hasNode: !!node, streamId: stream?.id, streamActive: stream?.active, numTracks: stream?.getTracks().length });
+    if (!node) {
+      console.log('attachVideoStream EXIT: node is null');
+      return;
+    }
     if (stream) {
-      // Prevent duplicate re-assignment if stream is ALREADY assigned to node.srcObject
       if (node.srcObject === stream) {
+        console.log('attachVideoStream EXIT: node.srcObject is already equal to stream');
         return;
       }
+      console.log('STREAM ATTACHED:', stream);
       node.srcObject = stream;
-      console.log('STREAM ATTACHED:', node.srcObject);
-      node.play().then(() => {
-        console.log('PLAY RESULT:', 'success');
-        setTimeout(() => {
-          console.log('VIDEO DIMENSIONS:', node.videoWidth, node.videoHeight, 'READY STATE:', node.readyState);
-        }, 2000);
-      }).catch((err) => {
-        console.log('PLAY RESULT ERROR:', err);
-      });
+      console.log('ABOUT TO CALL node.play()...');
+
+      node.onloadedmetadata = () => {
+        console.log('EVENT ONLOADEDMETADATA FIRED:', node.videoWidth, 'x', node.videoHeight, 'readyState:', node.readyState);
+      };
+      node.onloadeddata = () => {
+        console.log('EVENT ONLOADEDDATA FIRED:', node.videoWidth, 'x', node.videoHeight, 'readyState:', node.readyState);
+      };
+      node.onplaying = () => {
+        console.log('EVENT ONPLAYING FIRED:', node.videoWidth, 'x', node.videoHeight, 'readyState:', node.readyState);
+      };
+      node.onerror = (e) => {
+        console.log('EVENT ONERROR FIRED on video element:', e);
+      };
+
+      try {
+        const p = node.play();
+        console.log('node.play() RETURNED PROMISE:', p);
+        if (p !== undefined) {
+          p.then(() => {
+            console.log('PLAY RESULT:', 'success');
+            setTimeout(() => {
+              console.log('VIDEO DIMENSIONS:', node.videoWidth, node.videoHeight, 'READY STATE:', node.readyState);
+            }, 2000);
+          }).catch((err) => {
+            console.log('PLAY RESULT ERROR:', err);
+          });
+        }
+      } catch (err) {
+        console.log('node.play() THREW SYNCHRONOUS ERROR:', err);
+      }
     } else {
+      console.log('attachVideoStream EXIT: stream is null');
       node.srcObject = null;
     }
   }, []);

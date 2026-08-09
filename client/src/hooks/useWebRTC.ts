@@ -119,41 +119,40 @@ export const useWebRTC = (channelId: string | null) => {
         (event.receiver as any).playoutDelayHint = 0;
       }
 
-      if (event.streams && event.streams[0]) {
-        const stream = event.streams[0];
+      // Ensure a valid MediaStream is always constructed even if streams[0] is absent
+      const stream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
 
-        // Handle remote microphone audio stream
-        if (event.track.kind === 'audio') {
-          console.log(`🔊 [WebRTC Pipeline] Attached remote audio track for peer ${targetSocketId}`);
-          setRemoteAudioStreams((prev) => ({
-            ...prev,
-            [targetSocketId]: stream,
-          }));
+      // Handle remote microphone audio stream
+      if (event.track.kind === 'audio') {
+        console.log(`🔊 [WebRTC Pipeline] Attached remote audio track for peer ${targetSocketId}`);
+        setRemoteAudioStreams((prev) => ({
+          ...prev,
+          [targetSocketId]: stream,
+        }));
+      }
+
+      // Handle remote video stream for screen share
+      if (event.track.kind === 'video') {
+        const peerUsername = peerUsernamesRef.current[targetSocketId] || presenterInfoRef.current?.username || 'Peer Presenter';
+        console.log(`🎥 [WebRTC Pipeline] Attached remote video track for peer ${targetSocketId} (username: ${peerUsername}, videoTracks: ${stream.getVideoTracks().length})`);
+
+        const vTrack = stream.getVideoTracks()[0];
+        if (vTrack) {
+          const settings = vTrack.getSettings();
+          setStreamStats({
+            width: settings.width || 1920,
+            height: settings.height || 1080,
+            frameRate: Math.round(settings.frameRate || 60),
+          });
         }
 
-        // Handle remote video stream for screen share
-        if (event.track.kind === 'video') {
-          const peerUsername = peerUsernamesRef.current[targetSocketId] || presenterInfoRef.current?.username || 'Peer Presenter';
-          console.log(`🎥 [WebRTC Pipeline] Attached remote video track for peer ${targetSocketId} (username: ${peerUsername})`);
-
-          const vTrack = stream.getVideoTracks()[0];
-          if (vTrack) {
-            const settings = vTrack.getSettings();
-            setStreamStats({
-              width: settings.width || 1920,
-              height: settings.height || 1080,
-              frameRate: Math.round(settings.frameRate || 60),
-            });
-          }
-
-          setRemoteStreams((prev) => ({
-            ...prev,
-            [targetSocketId]: {
-              stream,
-              username: peerUsername,
-            },
-          }));
-        }
+        setRemoteStreams((prev) => ({
+          ...prev,
+          [targetSocketId]: {
+            stream,
+            username: peerUsername,
+          },
+        }));
       }
     };
 

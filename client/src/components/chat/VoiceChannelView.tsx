@@ -210,19 +210,6 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
       node.srcObject = stream;
       console.log('ABOUT TO CALL node.play()...');
 
-      node.onloadedmetadata = () => {
-        console.log('EVENT ONLOADEDMETADATA FIRED:', node.videoWidth, 'x', node.videoHeight, 'readyState:', node.readyState);
-      };
-      node.onloadeddata = () => {
-        console.log('EVENT ONLOADEDDATA FIRED:', node.videoWidth, 'x', node.videoHeight, 'readyState:', node.readyState);
-      };
-      node.onplaying = () => {
-        console.log('EVENT ONPLAYING FIRED:', node.videoWidth, 'x', node.videoHeight, 'readyState:', node.readyState);
-      };
-      node.onerror = (e) => {
-        console.log('EVENT ONERROR FIRED on video element:', e);
-      };
-
       try {
         const p = node.play();
         console.log('node.play() RETURNED PROMISE:', p);
@@ -330,22 +317,41 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
 
         {/* Screen Share Mode vs Participant Grid Mode */}
         {activeStream ? (
-          <div className="flex-1 w-full max-w-5xl flex flex-col items-center justify-center space-y-4 h-full min-h-0">
+          <div className="flex-1 w-full max-w-5xl flex flex-col items-center justify-center space-y-4 h-full min-h-[450px]">
             {/* Screen Share Stage with Viewer Maximize / Restore Controls */}
             <div
               className={`relative transition-all duration-300 ${
                 isMaximized
                   ? 'fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-4'
-                  : 'relative w-full flex-1 flex flex-col items-center justify-center rounded-3xl overflow-hidden shadow-2xl border border-cyber-cyan/30 shadow-glow-cyan group bg-black'
+                  : 'relative w-full flex-1 min-h-[420px] aspect-video flex flex-col items-center justify-center rounded-3xl overflow-hidden shadow-2xl border border-cyber-cyan/30 shadow-glow-cyan group bg-black'
               }`}
             >
-              {/* Live Video Frame */}
+              {/* Live Video Frame with JSX Event Listeners & Explicit Dimensions */}
               <video
                 ref={videoCallbackRef}
                 autoPlay
                 playsInline
                 muted
-                className="w-full h-full object-contain bg-black rounded-2xl"
+                onLoadedMetadata={(e) => {
+                  const v = e.currentTarget;
+                  console.log('JSX ONLOADEDMETADATA FIRED:', v.videoWidth, 'x', v.videoHeight, 'readyState:', v.readyState);
+                  v.play().then(() => {
+                    console.log('PLAY RESULT:', 'success');
+                    console.log('VIDEO DIMENSIONS:', v.videoWidth, v.videoHeight, 'READY STATE:', v.readyState);
+                  }).catch(err => {
+                    console.log('PLAY RESULT ERROR:', err);
+                  });
+                }}
+                onCanPlay={(e) => {
+                  const v = e.currentTarget;
+                  console.log('JSX ONCANPLAY FIRED:', v.videoWidth, 'x', v.videoHeight);
+                }}
+                onPlaying={(e) => {
+                  const v = e.currentTarget;
+                  console.log('JSX ONPLAYING FIRED:', v.videoWidth, 'x', v.videoHeight);
+                }}
+                style={{ minHeight: '380px', width: '100%', height: '100%' }}
+                className="w-full h-full min-h-[380px] object-contain bg-black rounded-2xl"
               />
 
               {/* Presenter Header Label */}

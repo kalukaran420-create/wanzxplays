@@ -9,7 +9,7 @@ import { api } from '../../services/api';
 import { UserProfileModal } from '../modals/UserProfileModal';
 import { ImageLightboxModal } from '../modals/ImageLightboxModal';
 import { QuickSwitcherModal } from '../modals/QuickSwitcherModal';
-import { Hash, Volume2, Users, Paperclip, Send, Search, X, Sparkles } from 'lucide-react';
+import { Hash, Volume2, Users, Paperclip, Send, Search, X, Sparkles, Smile } from 'lucide-react';
 
 interface ChatAreaProps {
   onToggleMembers: () => void;
@@ -38,8 +38,48 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const EMOJI_LIST = [
+    '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😋', '😛', '😝', '😜', '🤪', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '🤔', '🤭', '🤫', '😶', '😐', '😑', '😬', '🙄', '😯', '😴', '🤤', '😵', '😷', '🤒', '🤕', '👍', '👎', '👊', '✊', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✌️', '🤟', '🤘', '👌', '🤌', '🤏', '👈', '👉', '👆', '👇', '✋', '👋', '🤙', '💪', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '🔥', '✨', '🌟', '💥', '⚡', '🎉', '🎊'
+  ];
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    if (showEmojiPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showEmojiPicker]);
+
+  const handleSelectEmoji = (emoji: string) => {
+    if (textInputRef.current) {
+      const start = textInputRef.current.selectionStart || inputText.length;
+      const end = textInputRef.current.selectionEnd || inputText.length;
+      const updated = inputText.substring(0, start) + emoji + inputText.substring(end);
+      setInputText(updated);
+      setShowEmojiPicker(false);
+      setTimeout(() => {
+        textInputRef.current?.focus();
+        const newCursor = start + emoji.length;
+        textInputRef.current?.setSelectionRange(newCursor, newCursor);
+      }, 0);
+    } else {
+      setInputText((prev) => prev + emoji);
+      setShowEmojiPicker(false);
+    }
   };
 
   // Fetch channel message history & setup socket room for TEXT channels
@@ -304,7 +344,26 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
       )}
 
       {/* Message Input Box & Attachment Bar */}
-      <div className="p-4 pt-1 bg-cyber-chat select-none">
+      <div className="p-4 pt-1 bg-cyber-chat select-none relative">
+        {/* Emoji Picker Popover */}
+        {showEmojiPicker && (
+          <div
+            ref={emojiPickerRef}
+            className="absolute right-4 bottom-20 bg-cyber-input border border-cyber-border rounded-2xl p-3 shadow-2xl z-30 w-72 max-h-56 overflow-y-auto grid grid-cols-8 gap-1.5 animate-fade-in custom-scrollbar select-none"
+          >
+            {EMOJI_LIST.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => handleSelectEmoji(emoji)}
+                className="p-1.5 text-lg hover:bg-white/10 rounded-xl transition-transform hover:scale-125 flex items-center justify-center"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* File attachment preview badge */}
         {attachment && (
           <div className="mb-2 p-2 px-3 bg-cyber-input border border-cyber-border rounded-2xl flex items-center justify-between max-w-sm shadow-md animate-fade-in">
@@ -342,12 +401,24 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
           </button>
 
           <input
+            ref={textInputRef}
             type="text"
             value={inputText}
             onChange={handleInputChange}
             placeholder={`Message #${activeChannel.name}`}
-            className="w-full pl-12 pr-14 py-3.5 bg-cyber-input text-white rounded-2xl outline-none border border-cyber-border focus:border-cyber-violet text-sm transition-all shadow-inner"
+            className="w-full pl-12 pr-24 py-3.5 bg-cyber-input text-white rounded-2xl outline-none border border-cyber-border focus:border-cyber-violet text-sm transition-all shadow-inner"
           />
+
+          <button
+            type="button"
+            onClick={() => setShowEmojiPicker((prev) => !prev)}
+            className={`absolute right-13 p-2 rounded-xl transition-colors z-10 ${
+              showEmojiPicker ? 'text-cyber-cyan bg-white/10' : 'text-cyber-muted hover:text-cyber-cyan'
+            }`}
+            title="Add Emoji"
+          >
+            <Smile className="w-5 h-5" />
+          </button>
 
           <button
             type="submit"

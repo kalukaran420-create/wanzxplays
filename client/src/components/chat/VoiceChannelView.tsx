@@ -198,15 +198,15 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
   const attachVideoStream = useCallback((node: HTMLVideoElement | null, stream: MediaStream | null) => {
     if (!node) return;
     if (stream) {
-      console.log(`🎥 [Video Pipeline] Attaching MediaStream (id: ${stream.id}, tracks: ${stream.getTracks().length}) to <video> element`);
       node.srcObject = stream;
+      console.log('STREAM ATTACHED:', node.srcObject);
       node.play().then(() => {
-        console.log('🎥 [Video Pipeline] video.play() resolved successfully');
+        console.log('PLAY RESULT:', 'success');
         setTimeout(() => {
-          console.log(`🎥 [Video Pipeline Check after 500ms] videoDimensions: ${node.videoWidth}x${node.videoHeight}, paused: ${node.paused}, readyState: ${node.readyState}`);
-        }, 500);
+          console.log('VIDEO DIMENSIONS:', node.videoWidth, node.videoHeight, 'READY STATE:', node.readyState);
+        }, 2000);
       }).catch((err) => {
-        console.error('🎥 [Video Pipeline] video.play() failed:', err);
+        console.log('PLAY RESULT ERROR:', err);
       });
     } else {
       node.srcObject = null;
@@ -313,10 +313,6 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
                 autoPlay
                 playsInline
                 muted
-                onLoadedMetadata={(e) => {
-                  const v = e.currentTarget;
-                  console.log(`🎥 [Video Pipeline] onLoadedMetadata fired! Dimensions: ${v.videoWidth}x${v.videoHeight}`);
-                }}
                 className="w-full h-full object-contain bg-black rounded-2xl"
               />
 

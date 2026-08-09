@@ -109,7 +109,7 @@ export const useWebRTC = (channelId: string | null) => {
 
     // Track handler (receive remote video & audio)
     pc.ontrack = (event) => {
-      console.log(`🎥 [WebRTC Pipeline] ontrack fired! targetSocketId: ${targetSocketId}, kind: ${event.track.kind}, readyState: ${event.track.readyState}, enabled: ${event.track.enabled}`);
+      console.log('TRACK RECEIVED:', event.track.kind, event.track.readyState, event.track.enabled, event.track.muted);
       if (event.receiver && 'playoutDelayHint' in event.receiver) {
         (event.receiver as any).playoutDelayHint = 0;
       }

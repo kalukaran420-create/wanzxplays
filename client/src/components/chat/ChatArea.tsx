@@ -420,7 +420,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
             value={inputText}
             onChange={handleInputChange}
             placeholder={`Message #${activeChannel.name}`}
-            className="w-full pl-22 pr-14 py-3.5 bg-cyber-input text-white rounded-2xl outline-none border border-cyber-border focus:border-cyber-violet text-sm transition-all shadow-inner"
+            className="w-full pl-[88px] pr-14 py-3.5 bg-cyber-input text-white rounded-2xl outline-none border border-cyber-border focus:border-cyber-violet text-sm transition-all shadow-inner"
           />
 
           <button

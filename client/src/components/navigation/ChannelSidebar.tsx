@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useServer } from '../../context/ServerContext';
 import { useSocket } from '../../context/SocketContext';
 import { UserFooter } from './UserFooter';
@@ -57,7 +57,7 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
     };
   }, [socket]);
 
-  const MIN_WIDTH = 200;
+  const MIN_WIDTH = 180;
   const MAX_WIDTH = 480;
   const DEFAULT_WIDTH = 240;
 
@@ -73,20 +73,22 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
   });
 
   const [isResizing, setIsResizing] = useState(false);
+  const dragRef = useRef<{ startX: number; startWidth: number }>({ startX: 0, startWidth: DEFAULT_WIDTH });
 
   const startResizing = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    dragRef.current = { startX: e.clientX, startWidth: sidebarWidth };
     setIsResizing(true);
   };
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
-      const serverSidebarWidth = 72;
-      const newWidth = e.clientX - serverSidebarWidth;
-      const clampedWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, newWidth));
-      setSidebarWidth(clampedWidth);
-      localStorage.setItem('pulsecord_sidebar_width', clampedWidth.toString());
+      const deltaX = e.clientX - dragRef.current.startX;
+      const newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, dragRef.current.startWidth + deltaX));
+      setSidebarWidth(newWidth);
+      localStorage.setItem('pulsecord_sidebar_width', newWidth.toString());
     };
 
     const handleMouseUp = () => {

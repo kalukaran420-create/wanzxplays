@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useServer } from '../../context/ServerContext';
 import { Crown, ShieldCheck } from 'lucide-react';
 import { UserStatus } from '../../types';
@@ -6,7 +6,7 @@ import { UserStatus } from '../../types';
 export const MemberSidebar: React.FC = () => {
   const { activeServer } = useServer();
 
-  const MIN_WIDTH = 200;
+  const MIN_WIDTH = 180;
   const MAX_WIDTH = 480;
   const DEFAULT_WIDTH = 240;
 
@@ -22,19 +22,22 @@ export const MemberSidebar: React.FC = () => {
   });
 
   const [isResizing, setIsResizing] = useState(false);
+  const dragRef = useRef<{ startX: number; startWidth: number }>({ startX: 0, startWidth: DEFAULT_WIDTH });
 
   const startResizing = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    dragRef.current = { startX: e.clientX, startWidth: sidebarWidth };
     setIsResizing(true);
   };
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
-      const newWidth = window.innerWidth - e.clientX;
-      const clampedWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, newWidth));
-      setSidebarWidth(clampedWidth);
-      localStorage.setItem('pulsecord_member_sidebar_width', clampedWidth.toString());
+      const deltaX = dragRef.current.startX - e.clientX;
+      const newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, dragRef.current.startWidth + deltaX));
+      setSidebarWidth(newWidth);
+      localStorage.setItem('pulsecord_member_sidebar_width', newWidth.toString());
     };
 
     const handleMouseUp = () => {

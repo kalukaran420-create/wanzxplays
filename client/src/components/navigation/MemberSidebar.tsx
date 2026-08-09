@@ -71,7 +71,7 @@ export const MemberSidebar: React.FC = () => {
   return (
     <div
       style={{ width: `${sidebarWidth}px`, minWidth: `${sidebarWidth}px`, maxWidth: `${sidebarWidth}px` }}
-      className={`bg-cyber-panel border-l border-cyber-border flex flex-col select-none flex-shrink-0 z-10 relative ${
+      className={`bg-cyber-panel border-l border-cyber-border flex flex-col select-none flex-shrink-0 z-10 relative overflow-x-hidden ${
         isResizing ? 'select-none' : ''
       }`}
     >
@@ -92,7 +92,7 @@ export const MemberSidebar: React.FC = () => {
         Members — {activeServer.members.length}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-3 space-y-4">
         {/* Online Members Section */}
         <div className="space-y-1">
           <div className="text-[11px] font-extrabold text-cyber-muted uppercase px-2 tracking-wider">

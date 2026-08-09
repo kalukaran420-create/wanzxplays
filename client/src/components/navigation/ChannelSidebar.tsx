@@ -169,7 +169,7 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
   return (
     <div
       style={{ width: `${sidebarWidth}px`, minWidth: `${sidebarWidth}px`, maxWidth: `${sidebarWidth}px` }}
-      className={`bg-cyber-panel flex flex-col h-full border-r border-cyber-border select-none relative z-10 flex-shrink-0 ${
+      className={`bg-cyber-panel flex flex-col h-full border-r border-cyber-border select-none relative z-10 flex-shrink-0 overflow-x-hidden ${
         isResizing ? 'select-none' : ''
       }`}
     >
@@ -246,7 +246,7 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
       </div>
 
       {/* Channel Categories & Channels List */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-4 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-4 custom-scrollbar">
         {activeServer.categories?.map((category) => {
           const isCollapsed = collapsedCategories[category.id];
 

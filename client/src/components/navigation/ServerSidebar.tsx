@@ -20,7 +20,7 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
   const { servers, activeServer, selectServer } = useServer();
 
   return (
-    <div className="w-[72px] min-w-[72px] max-w-[72px] bg-cyber-base flex flex-col items-center py-3 space-y-2 select-none flex-shrink-0 border-r border-cyber-border z-20 overflow-x-hidden">
+    <div className="w-[72px] min-w-[72px] max-w-[72px] bg-cyber-base flex flex-col items-center py-3 space-y-2 select-none flex-shrink-0 border-r border-cyber-border z-30">
       {/* App Home Button */}
       <div className="relative group flex items-center justify-center w-12 h-12">
         <div
@@ -42,7 +42,7 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
       <div className="w-8 h-[2px] bg-cyber-border rounded-full my-1" />
 
       {/* Server List */}
-      <div className="flex-1 w-full space-y-2.5 overflow-y-auto overflow-x-hidden no-scrollbar flex flex-col items-center px-2">
+      <div className="flex-1 w-full space-y-2.5 overflow-y-auto no-scrollbar flex flex-col items-center px-2">
         {servers.map((server) => {
           const isActive = activeView === 'server' && activeServer?.id === server.id;
 
@@ -76,7 +76,7 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
               </button>
 
               {/* Tooltip */}
-              <div className="fixed left-[84px] bg-cyber-input border border-cyber-border text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 whitespace-nowrap z-50 animate-fade-in">
+              <div className="absolute left-16 top-1/2 -translate-y-1/2 bg-cyber-input border border-cyber-border text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-2xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50 animate-fade-in">
                 {server.name}
               </div>
             </div>
@@ -92,7 +92,7 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
           >
             <Plus className="w-5 h-5" />
           </button>
-          <div className="fixed left-[84px] bg-cyber-input border border-cyber-border text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 whitespace-nowrap z-50 animate-fade-in">
+          <div className="absolute left-16 top-1/2 -translate-y-1/2 bg-cyber-input border border-cyber-border text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-2xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50 animate-fade-in">
             Create Server
           </div>
         </div>
@@ -107,7 +107,7 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
             >
               <Compass className="w-5 h-5" />
             </button>
-            <div className="fixed left-[84px] bg-cyber-input border border-cyber-border text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 whitespace-nowrap z-50 animate-fade-in">
+            <div className="absolute left-16 top-1/2 -translate-y-1/2 bg-cyber-input border border-cyber-border text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-2xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50 animate-fade-in">
               Explore Servers
             </div>
           </div>

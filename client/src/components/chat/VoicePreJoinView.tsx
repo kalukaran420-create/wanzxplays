@@ -4,6 +4,7 @@ import { useServer } from '../../context/ServerContext';
 import { useSocket } from '../../context/SocketContext';
 import { VoiceParticipant } from '../../hooks/useWebRTC';
 import { Volume2, Users, Mic } from 'lucide-react';
+import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
 
 interface VoicePreJoinViewProps {
   channel: Channel;
@@ -90,7 +91,7 @@ export const VoicePreJoinView: React.FC<VoicePreJoinViewProps> = ({ channel }) =
                   >
                     <img
                       src={
-                        p.avatar ||
+                        resolveMediaUrl(p.avatar) ||
                         `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p.username)}`
                       }
                       alt={p.username}

@@ -435,7 +435,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({ isOpen
                       {/* Icon Preview */}
                       <div className="w-16 h-16 rounded-2xl bg-cyber-panel border border-cyber-border overflow-hidden flex-shrink-0 flex items-center justify-center shadow-lg relative group">
                         {icon ? (
-                          <img src={icon} alt="Server Icon" className="w-full h-full object-cover" />
+                          <img src={resolveMediaUrl(icon)} alt="Server Icon" className="w-full h-full object-cover" />
                         ) : (
                           <Image className="w-7 h-7 text-cyber-muted" />
                         )}

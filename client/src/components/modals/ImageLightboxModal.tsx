@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Download, ExternalLink } from 'lucide-react';
+import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
 
 interface ImageLightboxModalProps {
   imageUrl: string | null;
@@ -14,6 +15,8 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
 }) => {
   if (!isOpen || !imageUrl) return null;
 
+  const resolvedUrl = resolveMediaUrl(imageUrl);
+
   return (
     <div
       onClick={onClose}
@@ -26,7 +29,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
         {/* Floating Top Controls */}
         <div className="absolute -top-12 right-0 flex items-center space-x-2">
           <a
-            href={imageUrl}
+            href={resolvedUrl}
             target="_blank"
             rel="noreferrer"
             className="p-2 text-white/80 hover:text-white rounded-full bg-black/40 backdrop-blur-sm transition-colors"
@@ -35,7 +38,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
             <ExternalLink className="w-5 h-5" />
           </a>
           <a
-            href={imageUrl}
+            href={resolvedUrl}
             download
             className="p-2 text-white/80 hover:text-white rounded-full bg-black/40 backdrop-blur-sm transition-colors"
             title="Download Image"
@@ -53,7 +56,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
 
         {/* Image Display Container */}
         <img
-          src={imageUrl}
+          src={resolvedUrl}
           alt="Expanded Lightbox View"
           className="max-w-full max-h-[85vh] rounded-xl object-contain shadow-2xl border border-white/10"
         />

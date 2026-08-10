@@ -174,7 +174,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
           <div className={`mt-2.5 flex ${alignRight ? 'justify-end' : ''}`}>
             {message.fileType === 'image' ? (
               <img
-                src={message.fileUrl}
+                src={resolveMediaUrl(message.fileUrl)}
                 alt="Attachment"
                 onClick={() => onOpenImage(message.fileUrl!)}
                 className="max-w-sm max-h-72 rounded-2xl border border-white/10 cursor-pointer object-cover shadow-xl hover:opacity-95 hover:border-cyber-cyan/50 transition-all"

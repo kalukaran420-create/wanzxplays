@@ -136,7 +136,7 @@ export const DMChat: React.FC<DMChatProps> = ({ conversation }) => {
               {msg.fileUrl && (
                 <div className="mt-2">
                   {msg.fileType === 'image' ? (
-                    <img src={msg.fileUrl} alt="DM attachment" className="max-w-xs rounded-lg border border-white/10" />
+                    <img src={resolveMediaUrl(msg.fileUrl)} alt="DM attachment" className="max-w-xs rounded-lg border border-white/10" />
                   ) : (
                     <a
                       href={msg.fileUrl}

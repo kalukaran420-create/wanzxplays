@@ -107,31 +107,88 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
     let animId: number;
     let audioCtx: AudioContext | null = null;
 
+    const resumeAudioCtx = () => {
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume().then(() => {
+          console.log('🎙️ [Speaking Detector] AudioContext resumed successfully via user interaction.');
+        }).catch((err) => console.warn('🎙️ [Speaking Detector] AudioContext resume error:', err));
+      }
+    };
+
     const startAudioAnalyser = async () => {
       try {
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const track = micStream.getAudioTracks()[0];
+        console.log('🎙️ [Speaking Detector] Mic stream acquired:', {
+          label: track?.label,
+          enabled: track?.enabled,
+          readyState: track?.readyState,
+          muted: track?.muted,
+        });
+
         audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+        // Ensure AudioContext is resumed if suspended by browser autoplay policies
+        if (audioCtx.state === 'suspended') {
+          try {
+            await audioCtx.resume();
+          } catch (e) {
+            console.warn('🎙️ [Speaking Detector] Initial audioCtx.resume() pending user interaction:', e);
+          }
+        }
+        console.log(`🎙️ [Speaking Detector] AudioContext state: ${audioCtx.state}`);
+
+        window.addEventListener('click', resumeAudioCtx, { once: true });
+        window.addEventListener('keydown', resumeAudioCtx, { once: true });
+
         const analyser = audioCtx.createAnalyser();
         analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.4;
         const source = audioCtx.createMediaStreamSource(micStream);
         source.connect(analyser);
 
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        const freqData = new Uint8Array(analyser.frequencyBinCount);
+        const timeData = new Uint8Array(analyser.fftSize);
 
         const detectSpeaking = () => {
-          analyser.getByteFrequencyData(dataArray);
-          let sum = 0;
-          for (let i = 0; i < dataArray.length; i++) {
-            sum += dataArray[i];
+          if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
           }
-          const average = sum / dataArray.length;
 
-          if (average > 10) {
-            setIsLocalSpeaking(true);
+          analyser.getByteFrequencyData(freqData);
+          analyser.getByteTimeDomainData(timeData);
+
+          // 1. Calculate time-domain RMS (volume)
+          let sumSquares = 0;
+          for (let i = 0; i < timeData.length; i++) {
+            const norm = (timeData[i] - 128) / 128;
+            sumSquares += norm * norm;
+          }
+          const rms = Math.sqrt(sumSquares / timeData.length);
+
+          // 2. Calculate voice frequency band average (bins 0-40, ~0-3.5 kHz)
+          let freqSum = 0;
+          const voiceBins = Math.min(40, freqData.length);
+          for (let i = 0; i < voiceBins; i++) {
+            freqSum += freqData[i];
+          }
+          const freqAvg = freqSum / voiceBins;
+
+          // Sensitive speaking threshold: RMS > 0.012 or voice frequency band avg > 8
+          const isSpeakingNow = rms > 0.012 || freqAvg > 8;
+
+          if (isSpeakingNow) {
+            setIsLocalSpeaking((prev) => {
+              if (!prev) {
+                console.log(`🎙️ [Speaking Detector] Voice active! (RMS: ${rms.toFixed(4)}, FreqAvg: ${freqAvg.toFixed(1)})`);
+              }
+              return true;
+            });
             if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
             speakingTimeoutRef.current = setTimeout(() => {
               setIsLocalSpeaking(false);
-            }, 350);
+              console.log('🎙️ [Speaking Detector] Voice silent.');
+            }, 400);
           }
 
           animId = requestAnimationFrame(detectSpeaking);
@@ -139,7 +196,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
 
         detectSpeaking();
       } catch (err) {
-        console.warn('🎙️ [VoiceChannelView] Mic audio analyser unavailable:', err);
+        console.warn('🎙️ [VoiceChannelView] Mic audio analyser error:', err);
       }
     };
 
@@ -147,6 +204,8 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
 
     return () => {
       if (animId) cancelAnimationFrame(animId);
+      window.removeEventListener('click', resumeAudioCtx);
+      window.removeEventListener('keydown', resumeAudioCtx);
       if (audioCtx) audioCtx.close();
       if (micStream) micStream.getTracks().forEach((t) => t.stop());
     };

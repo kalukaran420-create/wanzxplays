@@ -288,6 +288,7 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
                   {category.channels?.map((channel) => {
                     const isSelected = activeChannel?.id === channel.id;
                     const isVoice = channel.type === 'VOICE';
+                    const isVoiceConnected = isVoice && connectedVoiceChannel?.id === channel.id;
 
                     return (
                       <div key={channel.id} className="space-y-1">
@@ -296,12 +297,16 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
                           className={`group flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all duration-200 ${
                             isSelected
                               ? 'bg-cyber-cyan/10 text-white border border-cyber-cyan/30 shadow-glow-cyan'
+                              : isVoiceConnected
+                              ? 'bg-cyber-emerald/10 text-white border border-cyber-emerald/30'
                               : 'text-cyber-muted hover:bg-cyber-hover hover:text-cyber-text'
                           }`}
                         >
                           <div className="flex items-center space-x-2 min-w-0 truncate">
                             {isVoice ? (
-                              <Volume2 className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-cyber-cyan' : 'text-cyber-emerald'}`} />
+                              <Volume2 className={`w-4 h-4 flex-shrink-0 ${
+                                isSelected ? 'text-cyber-cyan' : isVoiceConnected ? 'text-cyber-emerald animate-pulse' : 'text-cyber-emerald'
+                              }`} />
                             ) : (
                               <Hash className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-cyber-cyan' : 'text-cyber-muted'}`} />
                             )}
@@ -359,6 +364,7 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
               <div className="space-y-1 pl-1">
                 {uncategorizedVoice.map((channel) => {
                   const isSelected = activeChannel?.id === channel.id;
+                  const isVoiceConnected = connectedVoiceChannel?.id === channel.id;
                   return (
                     <div key={channel.id} className="space-y-1">
                       <div
@@ -366,11 +372,15 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
                         className={`group flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all duration-200 ${
                           isSelected
                             ? 'bg-cyber-cyan/10 text-white border border-cyber-cyan/30 shadow-glow-cyan'
+                            : isVoiceConnected
+                            ? 'bg-cyber-emerald/10 text-white border border-cyber-emerald/30'
                             : 'text-cyber-muted hover:bg-cyber-hover hover:text-cyber-text'
                         }`}
                       >
                         <div className="flex items-center space-x-2 min-w-0 truncate">
-                          <Volume2 className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-cyber-cyan' : 'text-cyber-emerald'}`} />
+                          <Volume2 className={`w-4 h-4 flex-shrink-0 ${
+                            isSelected ? 'text-cyber-cyan' : isVoiceConnected ? 'text-cyber-emerald animate-pulse' : 'text-cyber-emerald'
+                          }`} />
                           <span className="truncate">{channel.name}</span>
                         </div>
                         <button

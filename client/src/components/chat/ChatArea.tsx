@@ -261,16 +261,31 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
     );
   }
 
-  if (activeChannel.type === 'VOICE') {
-    const isConnectedToVoice = connectedVoiceChannel?.id === activeChannel.id;
-    if (isConnectedToVoice) {
-      return <VoiceChannelView channel={activeChannel} />;
-    }
+  if (activeChannel.type === 'VOICE' && !connectedVoiceChannel) {
+    // Not yet connected — show the pre-join lobby
     return <VoicePreJoinView channel={activeChannel} />;
   }
 
+  // If currently in a voice channel, keep VoiceChannelView ALWAYS mounted while
+  // connected (hidden via CSS when not the active view) so the WebRTC connection
+  // and socket room membership survive navigation to text channels.
+  const isViewingVoice = activeChannel.type === 'VOICE' && connectedVoiceChannel?.id === activeChannel.id;
+  // isViewingVoice: user is actively looking at the voice channel view
+  // VoiceChannelView is always kept mounted (hidden via CSS) while connected
+  // so useWebRTC never unmounts and tears down the peer connections.
   return (
-    <div className="flex-1 min-w-0 bg-cyber-chat flex flex-col h-full overflow-hidden relative">
+    <>
+      {/* Always-mounted voice view — hidden with display:none when not active so
+          the WebRTC connection and socket room survive navigating to text channels. */}
+      {connectedVoiceChannel && (
+        <div style={{ display: isViewingVoice ? 'contents' : 'none' }}>
+          <VoiceChannelView channel={connectedVoiceChannel} />
+        </div>
+      )}
+
+      {/* Text channel chat — hidden when the user is viewing a voice channel */}
+      <div style={{ display: isViewingVoice ? 'none' : 'contents' }}>
+
       {/* Channel Header Bar */}
       <div className="h-14 border-b border-cyber-border px-6 flex items-center justify-between shadow-sm bg-cyber-chat/80 backdrop-blur-md z-10 select-none">
         <div className="flex items-center space-x-2.5 min-w-0">
@@ -456,6 +471,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
         isOpen={isQuickSwitcherOpen}
         onClose={() => setIsQuickSwitcherOpen(false)}
       />
-    </div>
+      </div>
+
+    </>
   );
 };

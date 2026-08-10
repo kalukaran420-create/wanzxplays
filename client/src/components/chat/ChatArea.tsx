@@ -274,205 +274,202 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onToggleMembers, showMembers
   // VoiceChannelView is always kept mounted (hidden via CSS) while connected
   // so useWebRTC never unmounts and tears down the peer connections.
   return (
-    <>
-      {/* Always-mounted voice view — hidden with display:none when not active so
-          the WebRTC connection and socket room survive navigating to text channels. */}
+    <div className="flex-1 min-w-0 bg-cyber-chat flex flex-col h-full overflow-hidden relative">
+      {/* Always-mounted voice view — hidden when not active so WebRTC connection survives text navigation */}
       {connectedVoiceChannel && (
-        <div style={{ display: isViewingVoice ? 'contents' : 'none' }}>
+        <div className={`h-full w-full ${isViewingVoice ? 'block' : 'hidden'}`}>
           <VoiceChannelView channel={connectedVoiceChannel} />
         </div>
       )}
 
-      {/* Text channel chat — hidden when the user is viewing a voice channel */}
-      <div style={{ display: isViewingVoice ? 'none' : 'contents' }}>
-
-      {/* Channel Header Bar */}
-      <div className="h-14 border-b border-cyber-border px-6 flex items-center justify-between shadow-sm bg-cyber-chat/80 backdrop-blur-md z-10 select-none">
-        <div className="flex items-center space-x-2.5 min-w-0">
-          <Hash className="w-5 h-5 text-cyber-muted flex-shrink-0" />
-          <span className="font-extrabold text-white text-base truncate">{activeChannel.name}</span>
-          {activeChannel.topic && (
-            <span className="text-xs text-cyber-muted border-l border-cyber-border pl-3 truncate max-w-md hidden md:inline">
-              {activeChannel.topic}
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center space-x-3 flex-shrink-0">
-          <button
-            onClick={() => {
-              if (onOpenQuickSwitcher) onOpenQuickSwitcher();
-              else setIsQuickSwitcherOpen(true);
-            }}
-            className="p-2 text-cyber-muted hover:text-white rounded-xl bg-cyber-input border border-cyber-border transition-colors hidden sm:flex items-center space-x-1 text-xs font-bold"
-            title="Quick Switcher (Ctrl+K)"
-          >
-            <Search className="w-4 h-4 text-cyber-cyan" />
-            <span className="text-[10px] text-cyber-muted font-mono bg-cyber-base px-1.5 py-0.5 rounded">Ctrl+K</span>
-          </button>
-
-          <button
-            onClick={onToggleMembers}
-            className={`p-2 rounded-xl border transition-colors ${
-              showMembers
-                ? 'bg-cyber-violet/20 text-cyber-violet border-cyber-violet/40'
-                : 'bg-cyber-input text-cyber-muted hover:text-white border-cyber-border'
-            }`}
-            title="Toggle Member List"
-          >
-            <Users className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Messages Scroll Feed */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden py-4 space-y-1">
-        {loading && messages.length === 0 ? (
-          <div className="p-8 text-center text-xs text-cyber-muted font-bold flex items-center justify-center space-x-2">
-            <Sparkles className="w-4 h-4 text-cyber-violet animate-spin" />
-            <span>Loading channel history...</span>
+      {/* Text channel chat container — hidden when viewing voice channel */}
+      <div className={`flex-1 min-w-0 flex flex-col h-full overflow-hidden relative ${isViewingVoice ? 'hidden' : 'flex'}`}>
+        {/* Channel Header Bar */}
+        <div className="h-14 border-b border-cyber-border px-6 flex items-center justify-between shadow-sm bg-cyber-chat/80 backdrop-blur-md z-10 select-none">
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <Hash className="w-5 h-5 text-cyber-muted flex-shrink-0" />
+            <span className="font-extrabold text-white text-base truncate">{activeChannel.name}</span>
+            {activeChannel.topic && (
+              <span className="text-xs text-cyber-muted border-l border-cyber-border pl-3 truncate max-w-md hidden md:inline">
+                {activeChannel.topic}
+              </span>
+            )}
           </div>
-        ) : messages.length === 0 ? (
-          <div className="p-8 text-center text-cyber-muted my-auto select-none">
-            <div className="w-16 h-16 rounded-3xl bg-cyber-input flex items-center justify-center mx-auto mb-3 border border-cyber-border">
-              <Hash className="w-8 h-8 text-cyber-cyan" />
-            </div>
-            <h3 className="text-base font-extrabold text-white">Welcome to #{activeChannel.name}!</h3>
-            <p className="text-xs text-cyber-muted mt-1">This is the start of the #{activeChannel.name} channel.</p>
-          </div>
-        ) : (
-          messages.map((message) => (
-            <MessageItem
-              key={message.id}
-              message={message}
-              onEditMessage={handleEditMessage}
-              onDeleteMessage={handleDeleteMessage}
-              onToggleReaction={handleToggleReaction}
-              onOpenProfile={(u) => setSelectedUserForProfile(u)}
-              onOpenImage={(url) => setSelectedImageForLightbox(url)}
-            />
-          ))
-        )}
-        <div ref={messagesEndRef} />
-      </div>
 
-      {/* Typing Indicator Bar */}
-      {typingUsers.length > 0 && (
-        <div className="px-6 py-1 text-[11px] text-cyber-cyan font-bold italic animate-pulse">
-          {typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
-        </div>
-      )}
-
-      {/* Message Input Box & Attachment Bar */}
-      <div className="p-4 pt-1 bg-cyber-chat select-none relative">
-        {/* Emoji Picker Popover */}
-        {showEmojiPicker && (
-          <div
-            ref={emojiPickerRef}
-            className="absolute right-4 bottom-20 bg-cyber-input border border-cyber-border rounded-2xl p-3 shadow-2xl z-30 w-72 max-h-56 overflow-y-auto grid grid-cols-8 gap-1.5 animate-fade-in custom-scrollbar select-none"
-          >
-            {EMOJI_LIST.map((emoji) => (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() => handleSelectEmoji(emoji)}
-                className="p-1.5 text-lg hover:bg-white/10 rounded-xl transition-transform hover:scale-125 flex items-center justify-center"
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* File attachment preview badge */}
-        {attachment && (
-          <div className="mb-2 p-2 px-3 bg-cyber-input border border-cyber-border rounded-2xl flex items-center justify-between max-w-sm shadow-md animate-fade-in">
-            <div className="flex items-center space-x-2.5 min-w-0">
-              {attachmentPreview ? (
-                <img src={attachmentPreview} alt="Preview" className="w-9 h-9 rounded-xl object-cover border border-white/10" />
-              ) : (
-                <Paperclip className="w-5 h-5 text-cyber-cyan flex-shrink-0" />
-              )}
-              <div className="min-w-0">
-                <div className="text-xs font-bold text-white truncate">{attachment.name}</div>
-                <div className="text-[10px] text-cyber-muted font-mono">{(attachment.size / 1024).toFixed(1)} KB</div>
-              </div>
-            </div>
-            <button onClick={clearAttachment} className="p-1 text-cyber-muted hover:text-white rounded-lg transition-colors">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-
-        <form onSubmit={handleSendMessage} className="relative flex items-center">
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            onChange={handleFileSelect}
-          />
-          {/* Left Action Buttons Container (Paperclip + Emoji) */}
-          <div className="absolute left-2.5 inset-y-0 flex items-center space-x-0.5 z-10">
+          <div className="flex items-center space-x-3 flex-shrink-0">
             <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="p-2 text-cyber-muted hover:text-cyber-cyan rounded-xl transition-colors flex items-center justify-center"
-              title="Attach file (up to 50MB)"
+              onClick={() => {
+                if (onOpenQuickSwitcher) onOpenQuickSwitcher();
+                else setIsQuickSwitcherOpen(true);
+              }}
+              className="p-2 text-cyber-muted hover:text-white rounded-xl bg-cyber-input border border-cyber-border transition-colors hidden sm:flex items-center space-x-1 text-xs font-bold"
+              title="Quick Switcher (Ctrl+K)"
             >
-              <Paperclip className="w-5 h-5" />
+              <Search className="w-4 h-4 text-cyber-cyan" />
+              <span className="text-[10px] text-cyber-muted font-mono bg-cyber-base px-1.5 py-0.5 rounded">Ctrl+K</span>
             </button>
 
             <button
-              type="button"
-              onClick={() => setShowEmojiPicker((prev) => !prev)}
-              className={`p-2 rounded-xl transition-colors flex items-center justify-center ${
-                showEmojiPicker ? 'text-cyber-cyan bg-white/10' : 'text-cyber-muted hover:text-cyber-cyan'
+              onClick={onToggleMembers}
+              className={`p-2 rounded-xl border transition-colors ${
+                showMembers
+                  ? 'bg-cyber-violet/20 text-cyber-violet border-cyber-violet/40'
+                  : 'bg-cyber-input text-cyber-muted hover:text-white border-cyber-border'
               }`}
-              title="Add Emoji"
+              title="Toggle Member List"
             >
-              <Smile className="w-5 h-5" />
+              <Users className="w-4 h-4" />
             </button>
           </div>
+        </div>
 
-          <input
-            ref={textInputRef}
-            type="text"
-            value={inputText}
-            onChange={handleInputChange}
-            placeholder={`Message #${activeChannel.name}`}
-            className="w-full pl-[88px] pr-14 py-3.5 bg-cyber-input text-white rounded-2xl outline-none border border-cyber-border focus:border-cyber-violet text-sm transition-all shadow-inner"
-          />
+        {/* Messages Scroll Feed */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden py-4 space-y-1">
+          {loading && messages.length === 0 ? (
+            <div className="p-8 text-center text-xs text-cyber-muted font-bold flex items-center justify-center space-x-2">
+              <Sparkles className="w-4 h-4 text-cyber-violet animate-spin" />
+              <span>Loading channel history...</span>
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="p-8 text-center text-cyber-muted my-auto select-none">
+              <div className="w-16 h-16 rounded-3xl bg-cyber-input flex items-center justify-center mx-auto mb-3 border border-cyber-border">
+                <Hash className="w-8 h-8 text-cyber-cyan" />
+              </div>
+              <h3 className="text-base font-extrabold text-white">Welcome to #{activeChannel.name}!</h3>
+              <p className="text-xs text-cyber-muted mt-1">This is the start of the #{activeChannel.name} channel.</p>
+            </div>
+          ) : (
+            messages.map((message) => (
+              <MessageItem
+                key={message.id}
+                message={message}
+                onEditMessage={handleEditMessage}
+                onDeleteMessage={handleDeleteMessage}
+                onToggleReaction={handleToggleReaction}
+                onOpenProfile={(u) => setSelectedUserForProfile(u)}
+                onOpenImage={(url) => setSelectedImageForLightbox(url)}
+              />
+            ))
+          )}
+          <div ref={messagesEndRef} />
+        </div>
 
-          <button
-            type="submit"
-            disabled={!inputText.trim() && !attachment}
-            className="absolute right-3 p-2 bg-aurora-gradient hover:bg-aurora-hover text-white rounded-xl shadow-glow-violet transition-all disabled:opacity-30 disabled:shadow-none"
-            title="Send Message"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </form>
+        {/* Typing Indicator Bar */}
+        {typingUsers.length > 0 && (
+          <div className="px-6 py-1 text-[11px] text-cyber-cyan font-bold italic animate-pulse">
+            {typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
+          </div>
+        )}
+
+        {/* Message Input Box & Attachment Bar */}
+        <div className="p-4 pt-1 bg-cyber-chat select-none relative">
+          {/* Emoji Picker Popover */}
+          {showEmojiPicker && (
+            <div
+              ref={emojiPickerRef}
+              className="absolute right-4 bottom-20 bg-cyber-input border border-cyber-border rounded-2xl p-3 shadow-2xl z-30 w-72 max-h-56 overflow-y-auto grid grid-cols-8 gap-1.5 animate-fade-in custom-scrollbar select-none"
+            >
+              {EMOJI_LIST.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => handleSelectEmoji(emoji)}
+                  className="p-1.5 text-lg hover:bg-white/10 rounded-xl transition-transform hover:scale-125 flex items-center justify-center"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* File attachment preview badge */}
+          {attachment && (
+            <div className="mb-2 p-2 px-3 bg-cyber-input border border-cyber-border rounded-2xl flex items-center justify-between max-w-sm shadow-md animate-fade-in">
+              <div className="flex items-center space-x-2.5 min-w-0">
+                {attachmentPreview ? (
+                  <img src={attachmentPreview} alt="Preview" className="w-9 h-9 rounded-xl object-cover border border-white/10" />
+                ) : (
+                  <Paperclip className="w-5 h-5 text-cyber-cyan flex-shrink-0" />
+                )}
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-white truncate">{attachment.name}</div>
+                  <div className="text-[10px] text-cyber-muted font-mono">{(attachment.size / 1024).toFixed(1)} KB</div>
+                </div>
+              </div>
+              <button onClick={clearAttachment} className="p-1 text-cyber-muted hover:text-white rounded-lg transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          <form onSubmit={handleSendMessage} className="relative flex items-center">
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+            {/* Left Action Buttons Container (Paperclip + Emoji) */}
+            <div className="absolute left-2.5 inset-y-0 flex items-center space-x-0.5 z-10">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2 text-cyber-muted hover:text-cyber-cyan rounded-xl transition-colors flex items-center justify-center"
+                title="Attach file (up to 50MB)"
+              >
+                <Paperclip className="w-5 h-5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker((prev) => !prev)}
+                className={`p-2 rounded-xl transition-colors flex items-center justify-center ${
+                  showEmojiPicker ? 'text-cyber-cyan bg-white/10' : 'text-cyber-muted hover:text-cyber-cyan'
+                }`}
+                title="Add Emoji"
+              >
+                <Smile className="w-5 h-5" />
+              </button>
+            </div>
+
+            <input
+              ref={textInputRef}
+              type="text"
+              value={inputText}
+              onChange={handleInputChange}
+              placeholder={`Message #${activeChannel.name}`}
+              className="w-full pl-[88px] pr-14 py-3.5 bg-cyber-input text-white rounded-2xl outline-none border border-cyber-border focus:border-cyber-violet text-sm transition-all shadow-inner"
+            />
+
+            <button
+              type="submit"
+              disabled={!inputText.trim() && !attachment}
+              className="absolute right-3 p-2 bg-aurora-gradient hover:bg-aurora-hover text-white rounded-xl shadow-glow-violet transition-all disabled:opacity-30 disabled:shadow-none"
+              title="Send Message"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </form>
+        </div>
+
+        {/* Modals */}
+        <UserProfileModal
+          user={selectedUserForProfile}
+          isOpen={!!selectedUserForProfile}
+          onClose={() => setSelectedUserForProfile(null)}
+        />
+
+        <ImageLightboxModal
+          imageUrl={selectedImageForLightbox}
+          isOpen={!!selectedImageForLightbox}
+          onClose={() => setSelectedImageForLightbox(null)}
+        />
+
+        <QuickSwitcherModal
+          isOpen={isQuickSwitcherOpen}
+          onClose={() => setIsQuickSwitcherOpen(false)}
+        />
       </div>
-
-      {/* Modals */}
-      <UserProfileModal
-        user={selectedUserForProfile}
-        isOpen={!!selectedUserForProfile}
-        onClose={() => setSelectedUserForProfile(null)}
-      />
-
-      <ImageLightboxModal
-        imageUrl={selectedImageForLightbox}
-        isOpen={!!selectedImageForLightbox}
-        onClose={() => setSelectedImageForLightbox(null)}
-      />
-
-      <QuickSwitcherModal
-        isOpen={isQuickSwitcherOpen}
-        onClose={() => setIsQuickSwitcherOpen(false)}
-      />
-      </div>
-
-    </>
+    </div>
   );
 };

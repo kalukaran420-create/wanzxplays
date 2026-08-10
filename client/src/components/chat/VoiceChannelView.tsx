@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useServer } from '../../context/ServerContext';
 import { SoundboardModal } from '../voice/SoundboardModal';
 import { playSoundEffect, setSoundboardVolume } from '../../utils/soundSynthesizer';
+import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
 import {
   Monitor,
   MonitorOff,
@@ -427,6 +428,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
                   const pMuted = isSelf ? isMuted : p.isMuted;
                   const pDeafened = isSelf ? isDeafened : p.isDeafened;
                   const pSpeaking = isSelf ? isLocalSpeaking : p.isSpeaking;
+                  const pAvatar = isSelf && user?.avatar ? user.avatar : p.avatar;
 
                   return (
                     <div
@@ -439,7 +441,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
                     >
                       <div className="relative">
                         <img
-                          src={p.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p.username)}`}
+                          src={resolveMediaUrl(pAvatar) || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p.username)}`}
                           alt={p.username}
                           className={`w-8 h-8 rounded-full object-cover transition-all ${
                             pSpeaking ? 'ring-2 ring-cyber-emerald scale-105' : ''
@@ -497,6 +499,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
                   const pMuted = isSelf ? isMuted : p.isMuted;
                   const pDeafened = isSelf ? isDeafened : p.isDeafened;
                   const pSpeaking = isSelf ? isLocalSpeaking : p.isSpeaking;
+                  const pAvatar = isSelf && user?.avatar ? user.avatar : p.avatar;
 
                   return (
                     <div
@@ -510,7 +513,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
                       {/* Avatar with Speaking Ring */}
                       <div className="relative mb-3.5">
                         <img
-                          src={p.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p.username)}`}
+                          src={resolveMediaUrl(pAvatar) || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p.username)}`}
                           alt={p.username}
                           className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover shadow-2xl transition-all duration-200 ${
                             pSpeaking

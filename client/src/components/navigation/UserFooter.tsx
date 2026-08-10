@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useServer } from '../../context/ServerContext';
 import { Settings, Mic, MicOff, Volume2, VolumeX, ChevronUp, LogOut, Monitor } from 'lucide-react';
 import { UserStatus, Channel } from '../../types';
+import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
 
 interface UserFooterProps {
   onOpenSettings?: () => void;
@@ -84,7 +85,7 @@ export const UserFooter: React.FC<UserFooterProps> = ({ onOpenSettings, connecte
       >
         <div className="relative flex-shrink-0">
           <img
-            src={user.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`}
+            src={resolveMediaUrl(user.avatar) || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`}
             alt={user.username}
             className="w-8 h-8 rounded-full bg-cyber-input object-cover border border-white/10 group-hover:border-cyber-cyan/40 transition-colors"
           />

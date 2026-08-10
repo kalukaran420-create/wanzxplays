@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
 import { DMConversation } from '../../types';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -78,7 +79,7 @@ export const DMList: React.FC<DMListProps> = ({
                 >
                   <div className="relative flex-shrink-0">
                     <img
-                      src={otherParticipant?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${otherParticipant?.username}`}
+                      src={resolveMediaUrl(otherParticipant?.avatar) || `https://api.dicebear.com/7.x/bottts/svg?seed=${otherParticipant?.username}`}
                       alt={otherParticipant?.username}
                       className="w-8 h-8 rounded-full bg-discord-tertiary object-cover"
                     />

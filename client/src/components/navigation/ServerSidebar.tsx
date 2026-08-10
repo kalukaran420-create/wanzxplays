@@ -1,6 +1,7 @@
 import React from 'react';
 import { useServer } from '../../context/ServerContext';
 import { Plus, Compass, Zap, LogIn } from 'lucide-react';
+import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
 
 interface ServerSidebarProps {
   onOpenCreateServer: () => void;
@@ -71,7 +72,7 @@ export const ServerSidebar: React.FC<ServerSidebarProps> = ({
                 }`}
               >
                 {server.icon ? (
-                  <img src={server.icon} alt={server.name} className="w-full h-full object-cover" />
+                  <img src={resolveMediaUrl(server.icon)} alt={server.name} className="w-full h-full object-cover" />
                 ) : (
                   <span>{server.name.substring(0, 2).toUpperCase()}</span>
                 )}

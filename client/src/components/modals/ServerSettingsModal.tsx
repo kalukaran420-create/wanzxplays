@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
 import { ImageCropModal } from './ImageCropModal';
 import { ConfirmModal } from './ConfirmModal';
+import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
 import {
   X,
   Shield,
@@ -598,7 +599,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({ isOpen
                           >
                             <div className="flex items-center space-x-3 min-w-0">
                               <img
-                                src={memberUser?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${memberUser?.username}`}
+                                src={resolveMediaUrl(memberUser?.avatar) || `https://api.dicebear.com/7.x/bottts/svg?seed=${memberUser?.username}`}
                                 alt={memberUser?.username}
                                 className="w-8 h-8 rounded-full bg-cyber-input object-cover border border-white/10 flex-shrink-0"
                               />

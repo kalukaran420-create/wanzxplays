@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
 import { DMConversation, DirectMessage } from '../../types';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
@@ -95,7 +96,7 @@ export const DMChat: React.FC<DMChatProps> = ({ conversation }) => {
       {/* DM Header */}
       <div className="h-12 border-b border-black/20 px-4 flex items-center space-x-3 shadow-sm bg-discord-primary z-10">
         <img
-          src={otherUser.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${otherUser.username}`}
+          src={resolveMediaUrl(otherUser.avatar) || `https://api.dicebear.com/7.x/bottts/svg?seed=${otherUser.username}`}
           alt={otherUser.username}
           className="w-7 h-7 rounded-full bg-discord-tertiary object-cover"
         />
@@ -106,7 +107,7 @@ export const DMChat: React.FC<DMChatProps> = ({ conversation }) => {
       <div className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-4 space-y-3">
         <div className="mb-6">
           <img
-            src={otherUser.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${otherUser.username}`}
+            src={resolveMediaUrl(otherUser.avatar) || `https://api.dicebear.com/7.x/bottts/svg?seed=${otherUser.username}`}
             alt={otherUser.username}
             className="w-20 h-20 rounded-full bg-discord-secondary object-cover mb-2"
           />
@@ -119,7 +120,7 @@ export const DMChat: React.FC<DMChatProps> = ({ conversation }) => {
         {messages.map((msg) => (
           <div key={msg.id} className="flex space-x-3 group">
             <img
-              src={msg.sender?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${msg.sender?.username}`}
+              src={resolveMediaUrl(msg.sender?.avatar) || `https://api.dicebear.com/7.x/bottts/svg?seed=${msg.sender?.username}`}
               alt={msg.sender?.username}
               className="w-10 h-10 rounded-full bg-discord-tertiary object-cover flex-shrink-0"
             />

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useServer } from '../../context/ServerContext';
 import { Crown, ShieldCheck } from 'lucide-react';
 import { UserStatus } from '../../types';
+import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
 
 export const MemberSidebar: React.FC = () => {
   const { activeServer } = useServer();
@@ -110,7 +111,7 @@ export const MemberSidebar: React.FC = () => {
               >
                 <div className="relative flex-shrink-0">
                   <img
-                    src={member.user?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${member.user?.username}`}
+                    src={resolveMediaUrl(member.user?.avatar) || `https://api.dicebear.com/7.x/bottts/svg?seed=${member.user?.username}`}
                     alt={member.user?.username}
                     className="w-9 h-9 rounded-full bg-cyber-input object-cover border border-white/5 group-hover:border-cyber-cyan/40 transition-colors"
                   />
@@ -158,7 +159,7 @@ export const MemberSidebar: React.FC = () => {
               >
                 <div className="relative flex-shrink-0">
                   <img
-                    src={member.user?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${member.user?.username}`}
+                    src={resolveMediaUrl(member.user?.avatar) || `https://api.dicebear.com/7.x/bottts/svg?seed=${member.user?.username}`}
                     alt={member.user?.username}
                     className="w-9 h-9 rounded-full bg-cyber-input object-cover border border-white/5"
                   />

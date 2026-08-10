@@ -3,6 +3,7 @@ import { User, UserStatus, Gift } from '../../types';
 import { api } from '../../services/api';
 import { SendGiftModal } from './SendGiftModal';
 import { X, MessageSquare, ShieldCheck, Calendar, Sparkles, Gift as GiftIcon } from 'lucide-react';
+import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
 
 interface UserProfileModalProps {
   user: User | null;
@@ -60,7 +61,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         >
           {user.banner && (
             <img
-              src={user.banner}
+              src={resolveMediaUrl(user.banner)}
               alt="User Banner"
               className="absolute inset-0 w-full h-full object-cover object-center block border-none outline-none"
             />
@@ -79,7 +80,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           {/* Avatar Positioned Over Banner */}
           <div className="relative -top-12 inline-block mb-0">
             <img
-              src={user.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`}
+              src={resolveMediaUrl(user.avatar) || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`}
               alt={user.username}
               className={`w-24 h-24 rounded-full border-4 border-cyber-panel object-cover bg-cyber-input ${
                 user.profileEffect === 'cyan_glow'

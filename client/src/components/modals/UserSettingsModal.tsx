@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ImageCropModal } from './ImageCropModal';
 import { X, Check, User as UserIcon, Image as ImageIcon, Palette, Sparkles, Camera } from 'lucide-react';
 import { api } from '../../services/api';
+import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
 
 interface UserSettingsModalProps {
   isOpen: boolean;
@@ -27,7 +28,7 @@ const AVATAR_EFFECTS = [
 ];
 
 export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, onClose }) => {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, updateUser } = useAuth();
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [customStatus, setCustomStatus] = useState(user?.customStatus || '');
   const [profileColor, setProfileColor] = useState(user?.profileColor || '#7c3aed');
@@ -111,7 +112,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, on
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       if (res.data.user) {
-        window.location.reload();
+        updateUser(res.data.user);
       }
     } catch (err: any) {
       setErrorMsg(err.response?.data?.error || `Failed to upload ${cropType}`);
@@ -170,7 +171,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, on
               >
                 {user.banner && (
                   <img
-                    src={user.banner}
+                    src={resolveMediaUrl(user.banner)}
                     alt="Profile Banner"
                     className="absolute inset-0 w-full h-full object-cover object-center block border-none outline-none"
                   />
@@ -189,7 +190,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, on
                 {/* Dead-Center Avatar Container with Camera Hover Overlay */}
                 <div className="relative group flex-shrink-0 w-20 h-20 cursor-pointer rounded-full p-0 flex items-center justify-center">
                   <img
-                    src={user.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`}
+                    src={resolveMediaUrl(user.avatar) || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`}
                     alt={user.username}
                     className={`w-20 h-20 rounded-full object-cover bg-cyber-panel border-4 border-cyber-input shadow-2xl block ${
                       profileEffect === 'cyan_glow'

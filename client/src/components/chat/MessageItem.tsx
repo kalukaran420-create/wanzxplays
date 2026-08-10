@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
 import { Message, User } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { SendGiftModal } from '../modals/SendGiftModal';
@@ -124,7 +125,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         className="relative flex-shrink-0 mt-0.5"
       >
         <img
-          src={message.author?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${message.author?.username}`}
+          src={resolveMediaUrl(message.author?.avatar) || `https://api.dicebear.com/7.x/bottts/svg?seed=${message.author?.username}`}
           alt={message.author?.username}
           className="w-10 h-10 rounded-full bg-cyber-input object-cover border border-white/10 hover:border-cyber-cyan transition-colors shadow-md"
         />

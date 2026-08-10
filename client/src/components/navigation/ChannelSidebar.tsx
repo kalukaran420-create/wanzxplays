@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
 import { useServer } from '../../context/ServerContext';
 import { useSocket } from '../../context/SocketContext';
 import { UserFooter } from './UserFooter';
@@ -153,7 +154,7 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
           <div key={p.socketId} className="flex items-center space-x-2 py-0.5 px-1.5 rounded-lg hover:bg-white/5 transition-all">
             <div className="relative flex-shrink-0">
               <img
-                src={p.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p.username)}`}
+                src={resolveMediaUrl(p.avatar) || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p.username)}`}
                 alt={p.username}
                 className={`w-4 h-4 rounded-full object-cover transition-all ${
                   p.isSpeaking ? 'ring-2 ring-cyber-emerald shadow-glow-emerald scale-105' : 'ring-1 ring-white/10'

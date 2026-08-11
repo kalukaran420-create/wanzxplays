@@ -150,6 +150,11 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
         const freqData = new Uint8Array(analyser.frequencyBinCount);
         const timeData = new Uint8Array(analyser.fftSize);
 
+        let consecutiveAboveFrames = 0;
+        let consecutiveBelowFrames = 0;
+        const ACTIVATION_FRAMES = 9;   // ~150ms sustained audio at 60fps
+        const DEACTIVATION_FRAMES = 18; // ~300ms sustained silence at 60fps
+
         const detectSpeaking = () => {
           if (audioCtx && audioCtx.state === 'suspended') {
             audioCtx.resume().catch(() => {});
@@ -174,21 +179,35 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
           }
           const freqAvg = freqSum / voiceBins;
 
-          // Sensitive speaking threshold: RMS > 0.012 or voice frequency band avg > 8
-          const isSpeakingNow = rms > 0.012 || freqAvg > 8;
+          // Raised VAD threshold to reject background noise (fan/room hum/clicks): RMS > 0.035 or freqAvg > 24
+          const isAboveThreshold = rms > 0.035 || freqAvg > 24;
 
-          if (isSpeakingNow) {
-            setIsLocalSpeaking((prev) => {
-              if (!prev) {
-                console.log(`🎙️ [Speaking Detector] Voice active! (RMS: ${rms.toFixed(4)}, FreqAvg: ${freqAvg.toFixed(1)})`);
-              }
-              return true;
-            });
-            if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
-            speakingTimeoutRef.current = setTimeout(() => {
-              setIsLocalSpeaking(false);
-              console.log('🎙️ [Speaking Detector] Voice silent.');
-            }, 400);
+          if (isAboveThreshold) {
+            consecutiveAboveFrames++;
+            consecutiveBelowFrames = 0;
+
+            // Activation Hysteresis: Require ~150ms of sustained speech above threshold
+            if (consecutiveAboveFrames >= ACTIVATION_FRAMES) {
+              setIsLocalSpeaking((prev) => {
+                if (!prev) {
+                  console.log(`🎙️ [Speaking Detector] Voice active! (RMS: ${rms.toFixed(4)}, FreqAvg: ${freqAvg.toFixed(1)})`);
+                }
+                return true;
+              });
+            }
+          } else {
+            consecutiveBelowFrames++;
+            consecutiveAboveFrames = 0;
+
+            // Deactivation Hysteresis: Require ~300ms of sustained silence below threshold
+            if (consecutiveBelowFrames >= DEACTIVATION_FRAMES) {
+              setIsLocalSpeaking((prev) => {
+                if (prev) {
+                  console.log('🎙️ [Speaking Detector] Voice silent.');
+                }
+                return false;
+              });
+            }
           }
 
           animId = requestAnimationFrame(detectSpeaking);

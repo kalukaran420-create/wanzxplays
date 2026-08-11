@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { DEFAULT_SOUNDS, playSoundEffect } from '../../utils/soundSynthesizer';
-import { X, Volume2, VolumeX, Upload, Sparkles, Play, ShieldAlert } from 'lucide-react';
+import { X, Volume2, VolumeX, Upload, Sparkles, Play, ShieldAlert, Trash2 } from 'lucide-react';
 import { api } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import { useServer } from '../../context/ServerContext';
+import { ConfirmModal } from '../modals/ConfirmModal';
 
 interface SoundboardModalProps {
   isOpen: boolean;
@@ -24,6 +27,8 @@ export const SoundboardModal: React.FC<SoundboardModalProps> = ({
   isMuted,
   setIsMuted,
 }) => {
+  const { user } = useAuth();
+  const { activeServer } = useServer();
   const [customSounds, setCustomSounds] = useState<any[]>([]);
   const [activePlayingId, setActivePlayingId] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState<boolean>(false);
@@ -31,6 +36,7 @@ export const SoundboardModal: React.FC<SoundboardModalProps> = ({
   const [uploading, setUploading] = useState<boolean>(false);
   const [customSoundName, setCustomSoundName] = useState<string>('');
   const [customSoundIcon, setCustomSoundIcon] = useState<string>('🎵');
+  const [soundToDelete, setSoundToDelete] = useState<any | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -40,6 +46,15 @@ export const SoundboardModal: React.FC<SoundboardModalProps> = ({
       }).catch((err) => console.error('Failed to fetch custom sounds:', err));
     }
   }, [isOpen]);
+
+  const handleDeleteCustomSound = async (soundId: string) => {
+    try {
+      await api.delete(`/sounds/${soundId}`);
+      setCustomSounds((prev) => prev.filter((s) => s.id !== soundId));
+    } catch (err: any) {
+      console.error('Failed to delete custom sound:', err);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -235,29 +250,62 @@ export const SoundboardModal: React.FC<SoundboardModalProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {customSounds.map((sound) => (
-                  <button
-                    key={sound.id}
-                    onClick={() => triggerSound({ id: sound.id, name: sound.name, icon: sound.icon, url: sound.url })}
-                    disabled={cooldown}
-                    className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden group ${
-                      activePlayingId === sound.id
-                        ? 'bg-cyber-cyan/20 border-cyber-cyan shadow-glow-cyan text-white scale-95'
-                        : 'bg-cyber-input/80 border-cyber-border hover:border-cyber-cyan/50 hover:bg-cyber-input text-cyber-text'
-                    } ${cooldown ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-2xl group-hover:scale-110 transition-transform">{sound.icon || '🎵'}</span>
-                      <Play className="w-3.5 h-3.5 text-cyber-muted group-hover:text-cyber-cyan transition-colors" />
+                {customSounds.map((sound) => {
+                  const canDelete = sound.uploaderId === user?.id || activeServer?.ownerId === user?.id;
+
+                  return (
+                    <div key={sound.id} className="relative group">
+                      <button
+                        onClick={() => triggerSound({ id: sound.id, name: sound.name, icon: sound.icon, url: sound.url })}
+                        disabled={cooldown}
+                        className={`w-full p-3 rounded-2xl border text-left transition-all relative overflow-hidden ${
+                          activePlayingId === sound.id
+                            ? 'bg-cyber-cyan/20 border-cyber-cyan shadow-glow-cyan text-white scale-95'
+                            : 'bg-cyber-input/80 border-cyber-border hover:border-cyber-cyan/50 hover:bg-cyber-input text-cyber-text'
+                        } ${cooldown ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-2xl group-hover:scale-110 transition-transform">{sound.icon || '🎵'}</span>
+                          <Play className="w-3.5 h-3.5 text-cyber-muted group-hover:text-cyber-cyan transition-colors" />
+                        </div>
+                        <div className="text-xs font-bold text-white truncate pr-4">{sound.name}</div>
+                        <div className="text-[10px] text-cyber-cyan truncate mt-0.5 font-mono">Custom Audio</div>
+                      </button>
+
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSoundToDelete(sound);
+                          }}
+                          className="absolute top-2 right-2 p-1 text-cyber-muted hover:text-cyber-rose hover:bg-cyber-rose/10 rounded-lg transition-all opacity-0 group-hover:opacity-100 z-10 cursor-pointer"
+                          title="Delete Custom Sound"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
-                    <div className="text-xs font-bold text-white truncate">{sound.name}</div>
-                    <div className="text-[10px] text-cyber-cyan truncate mt-0.5 font-mono">Custom Audio</div>
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
         </div>
+
+        {/* Delete Confirmation Modal */}
+        <ConfirmModal
+          isOpen={!!soundToDelete}
+          title="Delete Custom Sound"
+          message={`Are you sure you want to delete "${soundToDelete?.name}"? This action cannot be undone.`}
+          confirmText="Delete Sound"
+          onConfirm={() => {
+            if (soundToDelete) {
+              handleDeleteCustomSound(soundToDelete.id);
+            }
+          }}
+          onClose={() => setSoundToDelete(null)}
+        />
       </div>
     </div>
   );

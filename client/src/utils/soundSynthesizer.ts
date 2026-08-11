@@ -78,6 +78,12 @@ export function playSoundEffect(soundId: string, volume: number = 0.8, soundUrl?
     return;
   }
 
+  // Ensure AudioContext is un-suspended on user interaction before playback
+  const ctx = getAudioContext();
+  if (ctx.state === 'suspended') {
+    ctx.resume().catch((err) => console.warn('[Soundboard] ctx.resume error:', err));
+  }
+
   // If a custom audio file URL is provided, play via Audio element cleanly (NO looping)
   if (soundUrl) {
     const resolvedUrl = resolveMediaUrl(soundUrl);
@@ -100,10 +106,6 @@ export function playSoundEffect(soundId: string, volume: number = 0.8, soundUrl?
     return;
   }
 
-  const ctx = getAudioContext();
-  if (ctx.state === 'suspended') {
-    ctx.resume().catch((err) => console.warn('[Soundboard] ctx.resume error:', err));
-  }
   const masterGain = ctx.createGain();
   masterGain.gain.setValueAtTime(effectiveVolume, ctx.currentTime);
   activeMasterGain = masterGain;

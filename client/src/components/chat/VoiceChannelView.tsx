@@ -254,7 +254,10 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
       user: { id: string; username: string };
     }) => {
       const effectiveVol = isSoundboardMuted ? 0 : soundVolume;
-      if (effectiveVol > 0) {
+      const isSelf = data.user?.id === user?.id;
+
+      // Play audio for remote peers (sender plays immediately on click gesture)
+      if (!isSelf && effectiveVol > 0) {
         playSoundEffect(data.soundId, effectiveVol, data.soundUrl);
       }
 

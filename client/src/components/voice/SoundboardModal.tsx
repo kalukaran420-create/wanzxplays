@@ -79,7 +79,12 @@ export const SoundboardModal: React.FC<SoundboardModalProps> = ({
     setActivePlayingId(sound.id);
     setTimeout(() => setActivePlayingId(null), 1200);
 
-    // Broadcast via socket to everyone in voice channel (VoiceChannelView socket listener plays audio for all connected peers)
+    // Play locally immediately on user gesture
+    if (!isMuted) {
+      playSoundEffect(sound.id, soundVolume, sound.url);
+    }
+
+    // Broadcast via socket to peers in the voice channel
     if (socket) {
       socket.emit('voice:play-sound', {
         channelId,
@@ -88,9 +93,6 @@ export const SoundboardModal: React.FC<SoundboardModalProps> = ({
         soundIcon: sound.icon,
         soundUrl: sound.url,
       });
-    } else if (!isMuted) {
-      // Fallback local playback if offline/disconnected
-      playSoundEffect(sound.id, soundVolume, sound.url);
     }
   };
 

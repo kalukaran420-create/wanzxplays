@@ -10,7 +10,7 @@ interface SocketContextType {
 const SocketContext = createContext<SocketContextType>({ socket: null, connected: false });
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { token, user } = useAuth();
+  const { token, user, updateUser } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState<boolean>(false);
 
@@ -51,9 +51,16 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setConnected(false);
     });
 
+    socketInstance.on('user:update', (updatedUser: any) => {
+      if (userId && updatedUser.id === userId) {
+        updateUser(updatedUser);
+      }
+    });
+
     setSocket(socketInstance);
 
     return () => {
+      socketInstance.off('user:update');
       socketInstance.disconnect();
     };
   }, [token, userId]);

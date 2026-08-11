@@ -582,11 +582,26 @@ export const useWebRTC = (channelId: string | null) => {
       }
     };
 
+    const handleUserUpdate = (updatedUser: { id: string; avatar?: string; displayName?: string }) => {
+      setParticipants((prev) =>
+        prev.map((p) =>
+          p.userId === updatedUser.id
+            ? {
+                ...p,
+                ...(updatedUser.avatar && { avatar: updatedUser.avatar }),
+                ...(updatedUser.displayName && { displayName: updatedUser.displayName }),
+              }
+            : p
+        )
+      );
+    };
+
     socket.on('voice:peers', handleVoicePeers);
     socket.on('voice:participants', handleVoiceParticipants);
     socket.on('voice:state-update', handleVoiceStateUpdate);
     socket.on('voice:user-joined', handleUserJoined);
     socket.on('voice:user-left', handleUserLeft);
+    socket.on('user:update', handleUserUpdate);
     socket.on('webrtc:offer', handleOffer);
     socket.on('webrtc:answer', handleAnswer);
     socket.on('webrtc:ice-candidate', handleIceCandidate);
@@ -603,6 +618,7 @@ export const useWebRTC = (channelId: string | null) => {
       socket.off('voice:state-update', handleVoiceStateUpdate);
       socket.off('voice:user-joined', handleUserJoined);
       socket.off('voice:user-left', handleUserLeft);
+      socket.off('user:update', handleUserUpdate);
       socket.off('webrtc:offer', handleOffer);
       socket.off('webrtc:answer', handleAnswer);
       socket.off('webrtc:ice-candidate', handleIceCandidate);

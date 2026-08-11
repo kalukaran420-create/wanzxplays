@@ -117,9 +117,15 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
 
     const startAudioAnalyser = async () => {
       try {
-        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
         const track = micStream.getAudioTracks()[0];
-        console.log('🎙️ [Speaking Detector] Mic stream acquired:', {
+        console.log('🎙️ [Speaking Detector] Mic stream acquired with NoiseSuppression:', {
           label: track?.label,
           enabled: track?.enabled,
           readyState: track?.readyState,
@@ -152,7 +158,8 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
 
         let consecutiveAboveFrames = 0;
         let consecutiveBelowFrames = 0;
-        const ACTIVATION_FRAMES = 12;  // ~200ms sustained speech at 60fps
+        let noiseFloorRms = 0.02; // Initial ambient noise estimate
+        const ACTIVATION_FRAMES = 15;  // ~250ms sustained speech at 60fps
         const DEACTIVATION_FRAMES = 24; // ~400ms sustained silence at 60fps
 
         const detectSpeaking = () => {
@@ -179,8 +186,13 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
           }
           const freqAvg = freqSum / voiceBins;
 
-          // Tuned VAD threshold to reject background noise, fans, and clicks: (RMS > 0.055 && FreqAvg > 32) || RMS > 0.075
-          const isAboveThreshold = (rms > 0.055 && freqAvg > 32) || rms > 0.075;
+          // Dynamically track ambient background noise floor when volume is low
+          if (rms < noiseFloorRms + 0.03) {
+            noiseFloorRms = noiseFloorRms * 0.95 + rms * 0.05;
+          }
+
+          // Adaptive VAD threshold: Requires speech to be significantly above ambient noise floor & cross high speech threshold
+          const isAboveThreshold = (rms > Math.max(0.085, noiseFloorRms + 0.06) && freqAvg > 45) || rms > 0.12;
 
           if (isAboveThreshold) {
             consecutiveAboveFrames++;

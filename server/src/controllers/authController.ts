@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../utils/prisma';
 import { generateToken } from '../utils/jwt';
 import { AuthRequest } from '../middleware/authMiddleware';
+import { io } from '../index';
 
 const USER_SELECT_FIELDS = {
   id: true,
@@ -160,6 +161,8 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
       select: USER_SELECT_FIELDS,
     });
 
+    io.emit('user:update', updatedUser);
+
     return res.json({ message: 'Profile updated successfully', user: updatedUser });
   } catch (error: any) {
     console.error('UpdateProfile Error:', error);
@@ -185,6 +188,8 @@ export const uploadAvatar = async (req: AuthRequest, res: Response) => {
       select: USER_SELECT_FIELDS,
     });
 
+    io.emit('user:update', updatedUser);
+
     return res.json({ message: 'Avatar uploaded successfully', user: updatedUser });
   } catch (error: any) {
     console.error('UploadAvatar Error:', error);
@@ -209,6 +214,8 @@ export const uploadBanner = async (req: AuthRequest, res: Response) => {
       data: { banner: bannerUrl },
       select: USER_SELECT_FIELDS,
     });
+
+    io.emit('user:update', updatedUser);
 
     return res.json({ message: 'Banner uploaded successfully', user: updatedUser });
   } catch (error: any) {

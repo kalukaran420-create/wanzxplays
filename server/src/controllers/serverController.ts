@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { AuthRequest } from '../middleware/authMiddleware';
+import { io } from '../index';
 
 export const createServer = async (req: AuthRequest, res: Response) => {
   try {
@@ -293,6 +294,8 @@ export const updateServer = async (req: AuthRequest, res: Response) => {
       },
     });
 
+    io.emit('server:update', updatedServer);
+
     return res.json({ server: updatedServer });
   } catch (error: any) {
     console.error('UpdateServer Error:', error);
@@ -375,6 +378,8 @@ export const uploadServerIcon = async (req: AuthRequest, res: Response) => {
       where: { id: serverId },
       data: { icon: iconUrl },
     });
+
+    io.emit('server:update', updatedServer);
 
     return res.json({ message: 'Server icon uploaded successfully', iconUrl, server: updatedServer });
   } catch (error: any) {

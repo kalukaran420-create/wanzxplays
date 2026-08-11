@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Server, Channel, Category } from '../types';
 import { api } from '../services/api';
 import { useAuth } from './AuthContext';
+import { useSocket } from './SocketContext';
 
 interface ServerContextType {
   servers: Server[];
@@ -69,6 +70,8 @@ export const ServerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const { socket } = useSocket();
+
   useEffect(() => {
     if (user) {
       refreshServers();
@@ -79,6 +82,41 @@ export const ServerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setLoading(false);
     }
   }, [user]);
+
+  // Real-time socket listeners for live avatar, banner, and server icon updates across all connected clients
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleServerUpdate = (updatedServer: any) => {
+      setServers((prev) =>
+        prev.map((s) => (s.id === updatedServer.id ? { ...s, ...updatedServer } : s))
+      );
+      if (activeServer?.id === updatedServer.id) {
+        setActiveServer((prev) => (prev ? { ...prev, ...updatedServer } : null));
+      }
+    };
+
+    const handleUserUpdate = (updatedUser: any) => {
+      // Update activeServer members if updated user is a member of the current server
+      setActiveServer((prev) => {
+        if (!prev || !prev.members) return prev;
+        const updatedMembers = prev.members.map((m) =>
+          m.userId === updatedUser.id || m.user?.id === updatedUser.id
+            ? { ...m, user: { ...m.user, ...updatedUser } }
+            : m
+        );
+        return { ...prev, members: updatedMembers };
+      });
+    };
+
+    socket.on('server:update', handleServerUpdate);
+    socket.on('user:update', handleUserUpdate);
+
+    return () => {
+      socket.off('server:update', handleServerUpdate);
+      socket.off('user:update', handleUserUpdate);
+    };
+  }, [socket, activeServer?.id]);
 
   const selectServer = async (serverId: string) => {
     await fetchServerDetails(serverId);

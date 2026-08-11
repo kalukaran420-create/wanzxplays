@@ -158,9 +158,8 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
 
         let consecutiveAboveFrames = 0;
         let consecutiveBelowFrames = 0;
-        let noiseFloorRms = 0.02; // Initial ambient noise estimate
-        const ACTIVATION_FRAMES = 15;  // ~250ms sustained speech at 60fps
-        const DEACTIVATION_FRAMES = 24; // ~400ms sustained silence at 60fps
+        const ACTIVATION_FRAMES = 6;   // ~100ms fast speech response at 60fps
+        const DEACTIVATION_FRAMES = 18; // ~300ms smooth deactivation at 60fps
 
         const detectSpeaking = () => {
           if (audioCtx && audioCtx.state === 'suspended') {
@@ -186,13 +185,8 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
           }
           const freqAvg = freqSum / voiceBins;
 
-          // Dynamically track ambient background noise floor when volume is low
-          if (rms < noiseFloorRms + 0.03) {
-            noiseFloorRms = noiseFloorRms * 0.95 + rms * 0.05;
-          }
-
-          // Adaptive VAD threshold: Requires speech to be significantly above ambient noise floor & cross high speech threshold
-          const isAboveThreshold = (rms > Math.max(0.085, noiseFloorRms + 0.06) && freqAvg > 45) || rms > 0.12;
+          // Balanced VAD threshold with browser noise suppression enabled: RMS > 0.035 or FreqAvg > 20
+          const isAboveThreshold = rms > 0.035 || freqAvg > 20;
 
           if (isAboveThreshold) {
             consecutiveAboveFrames++;

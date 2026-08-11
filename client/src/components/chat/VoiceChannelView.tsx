@@ -152,8 +152,8 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
 
         let consecutiveAboveFrames = 0;
         let consecutiveBelowFrames = 0;
-        const ACTIVATION_FRAMES = 9;   // ~150ms sustained audio at 60fps
-        const DEACTIVATION_FRAMES = 18; // ~300ms sustained silence at 60fps
+        const ACTIVATION_FRAMES = 12;  // ~200ms sustained speech at 60fps
+        const DEACTIVATION_FRAMES = 24; // ~400ms sustained silence at 60fps
 
         const detectSpeaking = () => {
           if (audioCtx && audioCtx.state === 'suspended') {
@@ -179,8 +179,8 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
           }
           const freqAvg = freqSum / voiceBins;
 
-          // Raised VAD threshold to reject background noise (fan/room hum/clicks): RMS > 0.035 or freqAvg > 24
-          const isAboveThreshold = rms > 0.035 || freqAvg > 24;
+          // Tuned VAD threshold to reject background noise, fans, and clicks: (RMS > 0.055 && FreqAvg > 32) || RMS > 0.075
+          const isAboveThreshold = (rms > 0.055 && freqAvg > 32) || rms > 0.075;
 
           if (isAboveThreshold) {
             consecutiveAboveFrames++;

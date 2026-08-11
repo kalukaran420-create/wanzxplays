@@ -1,5 +1,7 @@
 // High Quality Web Audio Soundboard Synthesizer & Audio File Player
 
+import { resolveMediaUrl } from './resolveMediaUrl';
+
 export const DEFAULT_SOUNDS = [
   { id: 'airhorn', name: 'Airhorn', icon: '📯', desc: 'Classic hype pitch sweep' },
   { id: 'applause', name: 'Applause', icon: '👏', desc: 'Crowd cheering & clapping' },
@@ -21,7 +23,7 @@ function getAudioContext(): AudioContext {
     audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
   }
   if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
+    audioCtx.resume().catch((err) => console.warn('[Soundboard] audioCtx.resume error:', err));
   }
   return audioCtx;
 }
@@ -78,7 +80,9 @@ export function playSoundEffect(soundId: string, volume: number = 0.8, soundUrl?
 
   // If a custom audio file URL is provided, play via Audio element cleanly (NO looping)
   if (soundUrl) {
-    const audio = new Audio(soundUrl);
+    const resolvedUrl = resolveMediaUrl(soundUrl);
+    console.log(`🔊 [Soundboard] Playing custom audio URL: ${resolvedUrl}`);
+    const audio = new Audio(resolvedUrl);
     audio.loop = false; // Ensure playback naturally stops when clip ends
     audio.volume = effectiveVolume;
     activeCustomAudio = audio;
@@ -97,6 +101,9 @@ export function playSoundEffect(soundId: string, volume: number = 0.8, soundUrl?
   }
 
   const ctx = getAudioContext();
+  if (ctx.state === 'suspended') {
+    ctx.resume().catch((err) => console.warn('[Soundboard] ctx.resume error:', err));
+  }
   const masterGain = ctx.createGain();
   masterGain.gain.setValueAtTime(effectiveVolume, ctx.currentTime);
   activeMasterGain = masterGain;

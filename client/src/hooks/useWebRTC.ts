@@ -12,6 +12,20 @@ export interface StreamStats {
   frameRate: number;
 }
 
+export interface ScreenQualityPreset {
+  id: string;
+  label: string;
+  width: number;
+  height: number;
+  frameRate: number;
+}
+
+export const SCREEN_QUALITY_PRESETS: ScreenQualityPreset[] = [
+  { id: '720p60', label: '720p @ 60fps', width: 1280, height: 720, frameRate: 60 },
+  { id: '1080p60', label: '1080p @ 60fps', width: 1920, height: 1080, frameRate: 60 },
+  { id: '4k144', label: '4K @ 144fps', width: 3840, height: 2160, frameRate: 144 },
+];
+
 export interface VoiceParticipant {
   socketId: string;
   userId: string;
@@ -34,6 +48,7 @@ export const useWebRTC = (channelId: string | null) => {
   const [presenterInfo, setPresenterInfo] = useState<{ username: string; socketId: string } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [streamStats, setStreamStats] = useState<StreamStats | null>(null);
+  const [selectedQualityId, setSelectedQualityId] = useState<string>('1080p60');
   const [participants, setParticipants] = useState<VoiceParticipant[]>([]);
 
   const peerConnectionsRef = useRef<PeerConnectionMap>({});
@@ -242,18 +257,26 @@ export const useWebRTC = (channelId: string | null) => {
   }, [stopScreenShare]);
 
   // Request display media & broadcast video stream to all room peers with WebRTC offer renegotiation
-  const startScreenShare = useCallback(async () => {
+  const startScreenShare = useCallback(async (presetId?: string) => {
     setErrorMsg(null);
-    console.log('🎥 [WebRTC Pipeline] Requesting getDisplayMedia...');
+    const targetPresetId = presetId || selectedQualityId;
+    const preset = SCREEN_QUALITY_PRESETS.find((p) => p.id === targetPresetId) || SCREEN_QUALITY_PRESETS[1];
+    setSelectedQualityId(preset.id);
+
+    console.log(`🎥 [WebRTC Pipeline] Requesting getDisplayMedia for preset: ${preset.label}`);
     try {
       let stream: MediaStream;
 
+      // Reality-check note: 4K @ 144fps screen capture is extremely demanding — actual achievable frame rate/resolution
+      // depends entirely on the source display's capabilities and the browser/OS capture pipeline (most displays/browsers
+      // cap screen capture around 60fps regardless of request). These constraints are treated as a "best effort / ideal"
+      // target using `ideal` (not `min`), allowing getDisplayMedia to provide the closest supported quality tier gracefully.
       try {
         stream = await navigator.mediaDevices.getDisplayMedia({
           video: {
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-            frameRate: { ideal: 60, max: 60 },
+            width: { ideal: preset.width },
+            height: { ideal: preset.height },
+            frameRate: { ideal: preset.frameRate },
           },
           audio: false,
         });
@@ -271,9 +294,9 @@ export const useWebRTC = (channelId: string | null) => {
         }
         const settings = videoTrack.getSettings();
         const actualStats: StreamStats = {
-          width: settings.width || 1920,
-          height: settings.height || 1080,
-          frameRate: Math.round(settings.frameRate || 60),
+          width: settings.width || preset.width,
+          height: settings.height || preset.height,
+          frameRate: Math.round(settings.frameRate || preset.frameRate),
         };
         setStreamStats(actualStats);
       }
@@ -640,6 +663,8 @@ export const useWebRTC = (channelId: string | null) => {
     presenterInfo,
     errorMsg,
     streamStats,
+    selectedQualityId,
+    setSelectedQualityId,
     participants,
     setMicMutedState,
     startScreenShare,

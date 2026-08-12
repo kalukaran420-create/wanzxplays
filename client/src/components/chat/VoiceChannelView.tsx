@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Channel } from '../../types';
-import { useWebRTC } from '../../hooks/useWebRTC';
+import { useWebRTC, SCREEN_QUALITY_PRESETS } from '../../hooks/useWebRTC';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
 import { useServer } from '../../context/ServerContext';
@@ -45,6 +45,8 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
     presenterInfo,
     errorMsg,
     streamStats,
+    selectedQualityId,
+    setSelectedQualityId,
     participants,
     setMicMutedState,
     startScreenShare,
@@ -156,10 +158,8 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
         const freqData = new Uint8Array(analyser.frequencyBinCount);
         const timeData = new Uint8Array(analyser.fftSize);
 
-        let consecutiveAboveFrames = 0;
         let consecutiveBelowFrames = 0;
-        const ACTIVATION_FRAMES = 6;   // ~100ms fast speech response at 60fps
-        const DEACTIVATION_FRAMES = 18; // ~300ms smooth deactivation at 60fps
+        const DEACTIVATION_FRAMES = 18; // ~300ms smooth release at 60fps
 
         const detectSpeaking = () => {
           if (audioCtx && audioCtx.state === 'suspended') {
@@ -185,34 +185,17 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
           }
           const freqAvg = freqSum / voiceBins;
 
-          // Balanced VAD threshold with browser noise suppression enabled: RMS > 0.035 or FreqAvg > 20
-          const isAboveThreshold = rms > 0.035 || freqAvg > 20;
+          // Sensitive VAD threshold for instant voice pickup: RMS > 0.025 or FreqAvg > 15
+          const isAboveThreshold = rms > 0.025 || freqAvg > 15;
 
           if (isAboveThreshold) {
-            consecutiveAboveFrames++;
             consecutiveBelowFrames = 0;
-
-            // Activation Hysteresis: Require ~150ms of sustained speech above threshold
-            if (consecutiveAboveFrames >= ACTIVATION_FRAMES) {
-              setIsLocalSpeaking((prev) => {
-                if (!prev) {
-                  console.log(`🎙️ [Speaking Detector] Voice active! (RMS: ${rms.toFixed(4)}, FreqAvg: ${freqAvg.toFixed(1)})`);
-                }
-                return true;
-              });
-            }
+            setIsLocalSpeaking(true);
           } else {
             consecutiveBelowFrames++;
-            consecutiveAboveFrames = 0;
-
-            // Deactivation Hysteresis: Require ~300ms of sustained silence below threshold
+            // Deactivation release: Stay active for ~300ms during pauses between words
             if (consecutiveBelowFrames >= DEACTIVATION_FRAMES) {
-              setIsLocalSpeaking((prev) => {
-                if (prev) {
-                  console.log('🎙️ [Speaking Detector] Voice silent.');
-                }
-                return false;
-              });
+              setIsLocalSpeaking(false);
             }
           }
 
@@ -285,8 +268,11 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
   }, [socket, isSoundboardMuted, soundVolume]);
 
   const formatStatsLabel = () => {
-    if (!streamStats) return '1080p @ 60fps Target';
-    const resLabel = streamStats.height >= 1080 ? '1080p' : `${streamStats.height}p`;
+    if (!streamStats) {
+      const preset = SCREEN_QUALITY_PRESETS.find((p) => p.id === selectedQualityId);
+      return `${preset?.label || '1080p @ 60fps'} Target`;
+    }
+    const resLabel = streamStats.height >= 2160 ? '4K' : streamStats.height >= 1080 ? '1080p' : `${streamStats.height}p`;
     return `${resLabel} @ ${streamStats.frameRate}fps (${streamStats.width}x${streamStats.height})`;
   };
 
@@ -697,12 +683,26 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
           </button>
         </div>
 
-        {/* Presenter Share Screen Action Buttons */}
-        <div className="flex items-center space-x-3">
+        {/* Presenter Share Screen Action Buttons & Quality Selector */}
+        <div className="flex items-center space-x-2.5">
+          <select
+            value={selectedQualityId}
+            onChange={(e) => setSelectedQualityId(e.target.value)}
+            disabled={isSharing}
+            className="bg-cyber-input/90 hover:bg-cyber-hover border border-cyber-border text-white text-xs font-bold px-3 py-2.5 rounded-2xl outline-none focus:border-cyber-cyan cursor-pointer transition-all disabled:opacity-50"
+            title="Screen Share Quality"
+          >
+            {SCREEN_QUALITY_PRESETS.map((preset) => (
+              <option key={preset.id} value={preset.id} className="bg-cyber-panel text-white font-bold">
+                {preset.label}
+              </option>
+            ))}
+          </select>
+
           {isSharing ? (
             <>
               <button
-                onClick={startScreenShare}
+                onClick={() => startScreenShare(selectedQualityId)}
                 className="px-4 py-2.5 bg-cyber-input hover:bg-cyber-hover text-cyber-text border border-cyber-border text-xs font-bold rounded-2xl shadow transition-colors flex items-center space-x-2"
                 title="Switch Screen Source"
               >
@@ -720,7 +720,7 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
             </>
           ) : (
             <button
-              onClick={startScreenShare}
+              onClick={() => startScreenShare(selectedQualityId)}
               className="px-6 py-2.5 bg-aurora-gradient hover:bg-aurora-hover text-white text-xs font-bold rounded-2xl shadow-glow-violet transition-all flex items-center space-x-2"
             >
               <Monitor className="w-4 h-4" />

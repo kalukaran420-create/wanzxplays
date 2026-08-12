@@ -34,6 +34,7 @@ export const SoundboardModal: React.FC<SoundboardModalProps> = ({
   const [cooldown, setCooldown] = useState<boolean>(false);
   const [cooldownTime, setCooldownTime] = useState<number>(0);
   const [uploading, setUploading] = useState<boolean>(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [customSoundName, setCustomSoundName] = useState<string>('');
   const [customSoundIcon, setCustomSoundIcon] = useState<string>('🎵');
   const [soundToDelete, setSoundToDelete] = useState<any | null>(null);
@@ -100,24 +101,42 @@ export const SoundboardModal: React.FC<SoundboardModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setUploadError(null);
+
+    // Validate file type & size (50MB max limit matching server Multer limit)
+    if (!file.type.startsWith('audio/')) {
+      setUploadError('Please select a valid audio file (MP3, WAV, etc.)');
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      setUploadError('Audio file exceeds maximum 50MB limit.');
+      e.target.value = '';
+      return;
+    }
+
+    setUploading(true);
+
     const formData = new FormData();
     formData.append('sound', file);
     formData.append('name', customSoundName || file.name.replace(/\.[^/.]+$/, ''));
     formData.append('icon', customSoundIcon);
 
-    setUploading(true);
     try {
-      const res = await api.post('/sounds/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      // Omit manual Content-Type header so Axios automatically sets multipart/form-data with boundary for Multer
+      const res = await api.post('/sounds/upload', formData);
       if (res.data.sound) {
-        setCustomSounds((prev) => [res.data.sound, ...prev]);
+        setCustomSounds((prev) => [res.data.sound, ...prev.filter((s) => s.id !== res.data.sound.id)]);
         setCustomSoundName('');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to upload custom sound:', err);
+      const msg = err.response?.data?.error || err.message || 'Failed to upload audio clip';
+      setUploadError(msg);
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
   };
 
@@ -229,11 +248,12 @@ export const SoundboardModal: React.FC<SoundboardModalProps> = ({
                   placeholder="Sound Name (e.g. Boss Battle)"
                   value={customSoundName}
                   onChange={(e) => setCustomSoundName(e.target.value)}
-                  className="px-3 py-1.5 bg-cyber-base border border-cyber-border rounded-xl text-xs text-white outline-none focus:border-cyber-cyan w-full sm:w-48"
+                  disabled={uploading}
+                  className="px-3 py-1.5 bg-cyber-base border border-cyber-border rounded-xl text-xs text-white outline-none focus:border-cyber-cyan w-full sm:w-48 disabled:opacity-50"
                 />
               </div>
 
-              <label className="w-full sm:w-auto px-4 py-2 bg-aurora-gradient hover:bg-aurora-hover text-white text-xs font-bold rounded-xl cursor-pointer shadow-glow-violet transition-all flex items-center justify-center space-x-2">
+              <label className={`w-full sm:w-auto px-4 py-2 bg-aurora-gradient hover:bg-aurora-hover text-white text-xs font-bold rounded-xl shadow-glow-violet transition-all flex items-center justify-center space-x-2 ${uploading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
                 <Upload className="w-3.5 h-3.5" />
                 <span>{uploading ? 'Uploading...' : 'Upload Audio (MP3/WAV)'}</span>
                 <input
@@ -245,6 +265,12 @@ export const SoundboardModal: React.FC<SoundboardModalProps> = ({
                 />
               </label>
             </div>
+
+            {uploadError && (
+              <div className="mb-3 px-3 py-2 bg-cyber-rose/10 border border-cyber-rose/30 rounded-xl text-xs text-cyber-rose font-bold">
+                {uploadError}
+              </div>
+            )}
 
             {customSounds.length === 0 ? (
               <div className="p-4 text-center text-xs text-cyber-muted border border-dashed border-cyber-border rounded-2xl">

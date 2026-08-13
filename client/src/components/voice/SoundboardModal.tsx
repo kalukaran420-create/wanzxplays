@@ -104,8 +104,11 @@ export const SoundboardModal: React.FC<SoundboardModalProps> = ({
     setUploadError(null);
 
     // Validate file type & size (50MB max limit matching server Multer limit)
-    if (!file.type.startsWith('audio/')) {
-      setUploadError('Please select a valid audio file (MP3, WAV, etc.)');
+    const audioExtRegex = /\.(mp3|wav|ogg|m4a|aac|flac|wma)$/i;
+    const isAudio = (file.type && file.type.startsWith('audio/')) || audioExtRegex.test(file.name);
+
+    if (!isAudio) {
+      setUploadError('Please select a valid audio file (MP3, WAV, OGG, M4A, etc.)');
       e.target.value = '';
       return;
     }
@@ -258,7 +261,7 @@ export const SoundboardModal: React.FC<SoundboardModalProps> = ({
                 <span>{uploading ? 'Uploading...' : 'Upload Audio (MP3/WAV)'}</span>
                 <input
                   type="file"
-                  accept="audio/*"
+                  accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.wma"
                   onChange={handleCustomSoundUpload}
                   disabled={uploading}
                   className="hidden"

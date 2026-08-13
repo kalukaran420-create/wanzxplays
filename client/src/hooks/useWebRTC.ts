@@ -21,8 +21,8 @@ export interface ScreenQualityPreset {
 }
 
 export const SCREEN_QUALITY_PRESETS: ScreenQualityPreset[] = [
-  { id: '720p60', label: '720p @ 60fps', width: 1280, height: 720, frameRate: 60 },
-  { id: '1080p60', label: '1080p @ 60fps', width: 1920, height: 1080, frameRate: 60 },
+  { id: '720p144', label: '720p @ 144fps', width: 1280, height: 720, frameRate: 144 },
+  { id: '1080p144', label: '1080p @ 144fps', width: 1920, height: 1080, frameRate: 144 },
   { id: '4k144', label: '4K @ 144fps', width: 3840, height: 2160, frameRate: 144 },
 ];
 
@@ -48,7 +48,7 @@ export const useWebRTC = (channelId: string | null) => {
   const [presenterInfo, setPresenterInfo] = useState<{ username: string; socketId: string } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [streamStats, setStreamStats] = useState<StreamStats | null>(null);
-  const [selectedQualityId, setSelectedQualityId] = useState<string>('1080p60');
+  const [selectedQualityId, setSelectedQualityId] = useState<string>('1080p144');
   const [participants, setParticipants] = useState<VoiceParticipant[]>([]);
 
   const peerConnectionsRef = useRef<PeerConnectionMap>({});

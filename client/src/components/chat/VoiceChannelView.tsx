@@ -68,15 +68,29 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
   const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const remotePresenterObj = presenterInfo?.socketId
-    ? remoteStreams[presenterInfo.socketId] || Object.values(remoteStreams)[0]
-    : Object.values(remoteStreams)[0];
+  const activeScreenShares: { id: string; username: string; stream: MediaStream; isLocal: boolean }[] = [];
 
-  const activeStream = isSharing ? localStream : remotePresenterObj?.stream;
-  const isSomeonePresenting = isSharing || (!!activeStream && activeStream.getVideoTracks().length > 0);
-  const activePresenterName = isSharing
-    ? 'You'
-    : presenterInfo?.username || remotePresenterObj?.username || 'Peer Presenter';
+  if (isSharing && localStream && localStream.getVideoTracks().length > 0) {
+    activeScreenShares.push({
+      id: socket?.id || 'local',
+      username: user?.username || 'You',
+      stream: localStream,
+      isLocal: true,
+    });
+  }
+
+  Object.entries(remoteStreams).forEach(([peerSocketId, data]) => {
+    if (data?.stream && data.stream.getVideoTracks().length > 0) {
+      activeScreenShares.push({
+        id: peerSocketId,
+        username: data.username || presenterInfo?.username || 'Peer Presenter',
+        stream: data.stream,
+        isLocal: false,
+      });
+    }
+  });
+
+  const isSomeonePresenting = activeScreenShares.length > 0;
 
   // Toggle local mic audio track state in WebRTC & broadcast state update
   const handleToggleMicMute = () => {
@@ -347,26 +361,13 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
     }
   }, []);
 
-  const videoCallbackRef = useCallback(
-    (node: HTMLVideoElement | null) => {
-      videoElementRef.current = node;
-      attachVideoStream(node, activeStream || null);
-    },
-    [activeStream, attachVideoStream]
-  );
-
-  useEffect(() => {
-    if (videoElementRef.current) {
-      attachVideoStream(videoElementRef.current, activeStream || null);
-    }
-  }, [activeStream, attachVideoStream]);
-
-  const toggleNativeFullscreen = () => {
-    if (videoElementRef.current) {
+  const toggleNativeFullscreen = (node?: HTMLVideoElement | null) => {
+    const target = node || videoElementRef.current;
+    if (target) {
       if (document.fullscreenElement) {
         document.exitFullscreen();
       } else {
-        videoElementRef.current.requestFullscreen();
+        target.requestFullscreen();
       }
     }
   };
@@ -432,65 +433,74 @@ export const VoiceChannelView: React.FC<VoiceChannelViewProps> = ({ channel }) =
         {/* Screen Share Mode vs Participant Grid Mode */}
         {isSomeonePresenting ? (
           <div className="flex-1 w-full max-w-5xl flex flex-col items-center justify-center space-y-4 h-full min-h-[450px]">
-            {/* Screen Share Stage with Viewer Maximize / Restore Controls */}
+            {/* Screen Share Stage (grid for multiple concurrent shares) */}
             <div
-              className={`relative transition-all duration-300 ${
-                isMaximized
-                  ? 'fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-4'
-                  : 'relative w-full flex-1 min-h-[420px] aspect-video flex flex-col items-center justify-center rounded-3xl overflow-hidden shadow-2xl border border-cyber-cyan/30 shadow-glow-cyan group bg-black'
+              className={`w-full flex-1 gap-4 ${
+                activeScreenShares.length > 1
+                  ? 'grid grid-cols-1 md:grid-cols-2 aspect-video overflow-y-auto max-h-[650px]'
+                  : 'flex flex-col items-center justify-center'
               }`}
             >
-              {/* Live Video Frame with Static Key */}
-              <video
-                key="screen-share-video"
-                ref={videoCallbackRef}
-                autoPlay
-                playsInline
-                muted
-                style={{ minHeight: '380px', width: '100%', height: '100%' }}
-                className="w-full h-full min-h-[380px] object-contain bg-black rounded-2xl"
-              />
-
-              {/* Presenter Header Label */}
-              <div className="absolute top-4 left-4 z-10 flex items-center space-x-2 bg-black/70 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/10 text-xs font-bold text-white shadow-2xl">
-                <span>
-                  {isSharing ? 'You are sharing your screen' : `${activePresenterName} is sharing their screen`}
-                </span>
-                <span className="text-[10px] text-cyber-cyan font-mono uppercase bg-cyber-cyan/10 border border-cyber-cyan/30 px-2 py-0.5 rounded-md">
-                  LIVE 7 Mbps • DETAIL
-                </span>
-              </div>
-
-              {/* Viewer Maximize & Fullscreen Overlay Controls (Visible on Hover) */}
-              <div className="absolute bottom-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-2 bg-black/80 backdrop-blur-md p-2 rounded-2xl border border-white/10 shadow-2xl">
-                {/* Maximize / Restore View Button */}
-                <button
-                  onClick={() => setIsMaximized(!isMaximized)}
-                  className="px-3 py-1.5 text-white/90 hover:text-white rounded-xl hover:bg-white/10 transition-colors flex items-center space-x-1.5 text-xs font-extrabold"
-                  title={isMaximized ? 'Restore View' : 'Maximize Screen Share'}
+              {activeScreenShares.map((share) => (
+                <div
+                  key={share.id}
+                  className={`relative transition-all duration-300 ${
+                    isMaximized
+                      ? 'fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-4'
+                      : 'relative w-full flex-1 min-h-[380px] aspect-video flex flex-col items-center justify-center rounded-3xl overflow-hidden shadow-2xl border border-cyber-cyan/30 shadow-glow-cyan group bg-black'
+                  }`}
                 >
-                  {isMaximized ? (
-                    <>
-                      <Minimize2 className="w-4 h-4 text-cyber-cyan" />
-                      <span>Restore View</span>
-                    </>
-                  ) : (
-                    <>
-                      <Maximize2 className="w-4 h-4 text-cyber-cyan" />
-                      <span>Maximize View</span>
-                    </>
-                  )}
-                </button>
+                  {/* Live Video Frame */}
+                  <video
+                    autoPlay
+                    playsInline
+                    muted={share.isLocal}
+                    ref={(node) => {
+                      if (node && share.stream) {
+                        if (node.srcObject !== share.stream) {
+                          node.srcObject = share.stream;
+                        }
+                        node.defaultMuted = share.isLocal;
+                        node.muted = share.isLocal;
+                        node.play().catch(() => {});
+                      }
+                    }}
+                    className="w-full h-full min-h-[380px] object-contain bg-black rounded-2xl"
+                  />
 
-                {/* Native Fullscreen Button */}
-                <button
-                  onClick={toggleNativeFullscreen}
-                  className="p-2 text-white/80 hover:text-white rounded-xl hover:bg-white/10 transition-colors"
-                  title="Toggle Fullscreen"
-                >
-                  <Maximize2 className="w-4 h-4" />
-                </button>
-              </div>
+                  {/* Presenter Header Label */}
+                  <div className="absolute top-4 left-4 z-10 flex items-center space-x-2 bg-black/70 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/10 text-xs font-bold text-white shadow-2xl">
+                    <span>
+                      {share.isLocal ? 'You are sharing your screen' : `${share.username} is sharing their screen`}
+                    </span>
+                    <span className="text-[10px] text-cyber-cyan font-mono uppercase bg-cyber-cyan/10 border border-cyber-cyan/30 px-2 py-0.5 rounded-md">
+                      {share.isLocal ? `LIVE • ${formatStatsLabel()}` : 'LIVE • DETAIL'}
+                    </span>
+                  </div>
+
+                  {/* Viewer Maximize & Fullscreen Overlay Controls (Visible on Hover) */}
+                  <div className="absolute bottom-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-2 bg-black/80 backdrop-blur-md p-2 rounded-2xl border border-white/10 shadow-2xl">
+                    {/* Maximize / Restore View Button */}
+                    <button
+                      onClick={() => setIsMaximized(!isMaximized)}
+                      className="px-3 py-1.5 text-white/90 hover:text-white rounded-xl hover:bg-white/10 transition-colors flex items-center space-x-1.5 text-xs font-extrabold"
+                      title={isMaximized ? 'Restore View' : 'Maximize Screen Share'}
+                    >
+                      {isMaximized ? (
+                        <>
+                          <Minimize2 className="w-4 h-4 text-cyber-cyan" />
+                          <span>Restore View</span>
+                        </>
+                      ) : (
+                        <>
+                          <Maximize2 className="w-4 h-4 text-cyber-cyan" />
+                          <span>Maximize View</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Bottom Compact Participant Strip */}

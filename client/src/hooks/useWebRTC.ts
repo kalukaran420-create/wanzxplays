@@ -18,12 +18,13 @@ export interface ScreenQualityPreset {
   width: number;
   height: number;
   frameRate: number;
+  maxBitrate: number; // Max encoding bitrate in bits per second (bps)
 }
 
 export const SCREEN_QUALITY_PRESETS: ScreenQualityPreset[] = [
-  { id: '720p144', label: '720p @ 144fps', width: 1280, height: 720, frameRate: 144 },
-  { id: '1080p144', label: '1080p @ 144fps', width: 1920, height: 1080, frameRate: 144 },
-  { id: '4k144', label: '4K @ 144fps', width: 3840, height: 2160, frameRate: 144 },
+  { id: '720p144', label: '720p @ 144fps', width: 1280, height: 720, frameRate: 144, maxBitrate: 4_500_000 },
+  { id: '1080p144', label: '1080p @ 144fps', width: 1920, height: 1080, frameRate: 144, maxBitrate: 9_000_000 },
+  { id: '4k144', label: '4K @ 144fps', width: 3840, height: 2160, frameRate: 144, maxBitrate: 22_000_000 },
 ];
 
 export interface VoiceParticipant {
@@ -332,7 +333,19 @@ export const useWebRTC = (channelId: string | null) => {
 
             const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
             if (sender) {
-              console.log('🎥 [RTP-SENDER-DIAG] Sender encodings:', sender.getParameters()?.encodings);
+              try {
+                const params = sender.getParameters();
+                if (!params.encodings || params.encodings.length === 0) {
+                  params.encodings = [{}];
+                }
+                params.encodings[0].maxBitrate = preset.maxBitrate;
+                (params as any).degradationPreference = 'maintain-resolution';
+
+                await sender.setParameters(params);
+                console.log(`🎥 [WebRTC Pipeline] Configured sender maxBitrate=${preset.maxBitrate} bps, degradationPreference=maintain-resolution`);
+              } catch (paramErr) {
+                console.warn('🎥 [WebRTC Pipeline] Warning applying sender parameters:', paramErr);
+              }
             }
 
             // Monitor SENDER bytesSent for 5 seconds

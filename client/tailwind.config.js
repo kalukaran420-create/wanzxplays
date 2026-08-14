@@ -25,6 +25,8 @@ export default {
           emerald: '#10b981',    // Online Status
           amber: '#f59e0b',      // Idle Status
           rose: '#ef4444',       // DND / Error Status
+          neonPink: '#ec4899',   // Neon Accent Pink
+          neonBlue: '#3b82f6',   // Neon Accent Blue
           text: '#f1f5f9',       // Primary Text (Starlight)
           muted: '#94a3b8',      // Muted Secondary Text
         },
@@ -47,14 +49,18 @@ export default {
         }
       },
       boxShadow: {
-        'glow-violet': '0 0 20px rgba(124, 58, 237, 0.35)',
-        'glow-cyan': '0 0 20px rgba(6, 182, 212, 0.35)',
-        'glow-emerald': '0 0 15px rgba(16, 185, 129, 0.4)',
+        'glow-violet': '0 0 22px rgba(124, 58, 237, 0.45)',
+        'glow-cyan': '0 0 22px rgba(6, 182, 212, 0.45)',
+        'glow-emerald': '0 0 18px rgba(16, 185, 129, 0.55)',
+        'glow-pink': '0 0 22px rgba(236, 72, 153, 0.45)',
+        'glow-blue': '0 0 22px rgba(59, 130, 246, 0.45)',
+        'glow-neon': '0 0 25px rgba(6, 182, 212, 0.35), 0 0 12px rgba(124, 58, 237, 0.45)',
       },
       backgroundImage: {
         'aurora-gradient': 'linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%)',
         'aurora-hover': 'linear-gradient(135deg, #6d28d9 0%, #0891b2 100%)',
         'dark-gradient': 'linear-gradient(180deg, #131622 0%, #0d0f17 100%)',
+        'neon-gradient': 'linear-gradient(135deg, #ec4899 0%, #7c3aed 50%, #06b6d4 100%)',
       }
     },
   },

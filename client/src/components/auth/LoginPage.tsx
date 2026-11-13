@@ -26,7 +26,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSwitchToRegister }) => {
       await login(email, password);
       navigate('/');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Invalid email or password');
+      const serverMsg = err.response?.data?.error || err.response?.data?.message;
+      if (err.response?.status === 404) {
+        setError('Backend server not found (404). The server may be sleeping, stopped, or offline.');
+      } else if (serverMsg) {
+        setError(serverMsg);
+      } else if (!err.response) {
+        setError('Cannot connect to the backend server. Please check your network connection.');
+      } else {
+        setError('Invalid email or password');
+      }
     } finally {
       setLoading(false);
     }

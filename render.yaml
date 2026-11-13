@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: pulsecord-server
+    runtime: node
+    plan: free
+    buildCommand: npm install && cd server && npx prisma generate && npx prisma db push && npx tsc
+    startCommand: node server/dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: CLIENT_URL
+        value: https://wanzxplays-client.vercel.app
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true

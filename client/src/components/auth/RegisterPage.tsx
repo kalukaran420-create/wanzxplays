@@ -28,7 +28,16 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onSwitchToLogin }) =
       await register(email, username, password, displayName);
       navigate('/');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Registration failed');
+      const serverMsg = err.response?.data?.error || err.response?.data?.message;
+      if (err.response?.status === 404) {
+        setError('Backend server not found (404). The server may be sleeping, stopped, or offline.');
+      } else if (serverMsg) {
+        setError(serverMsg);
+      } else if (!err.response) {
+        setError('Cannot connect to the backend server. Please check your network connection.');
+      } else {
+        setError('Registration failed');
+      }
     } finally {
       setLoading(false);
     }

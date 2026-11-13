@@ -88,7 +88,18 @@ npm run prisma:generate
 npm run prisma:seed
 ```
 
-### 3. Run Development Server
+### 3. Run Online (Multi-Device Communication) 🌐
+To run PulseCord so anyone can join from **any device** (phones, tablets, laptops, friends across the world):
+```bash
+npm run online
+```
+This automatically:
+- Builds client & server
+- Starts backend & real-time WebSockets on port `5000`
+- Launches a secure public HTTPS tunnel via Cloudflare
+- Displays your **Global Online HTTPS Link**, **Local Wi-Fi Link**, and pre-seeded test accounts!
+
+### 4. Run Development Server (Local Development) 💻
 From the project root:
 ```bash
 npm run dev

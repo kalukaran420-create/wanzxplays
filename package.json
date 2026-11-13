@@ -9,16 +9,20 @@
   "scripts": {
     "dev:server": "npm run dev --prefix server",
     "dev:client": "npm run dev --prefix client",
-    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev": "node node_modules/concurrently/dist/bin/concurrently.js \"npm run dev:server\" \"npm run dev:client\"",
     "prisma:generate": "npm run prisma:generate --prefix server",
     "prisma:push": "npm run prisma:push --prefix server",
     "build:client": "npm run build --prefix client",
     "build:server": "npm run build --prefix server",
     "build": "npm run build:client && npm run build:server",
+    "serve": "node server/dist/index.js",
+    "online": "node scripts/start-online.js",
     "start": "node server/dist/index.js"
   },
   "devDependencies": {
+    "cloudflared": "^0.7.3",
     "concurrently": "^8.2.2",
+    "localtunnel": "^2.0.2",
     "prisma": "^5.10.2",
     "typescript": "^5.3.3"
   }

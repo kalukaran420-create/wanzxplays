@@ -5,6 +5,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import authRoutes from './routes/auth';
 import serverRoutes from './routes/servers';
 import channelRoutes from './routes/channels';
@@ -26,17 +27,30 @@ const allowedOriginsList = [
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:3000',
+  'http://localhost:5000',
   'https://wanzxplays-client.vercel.app',
-  ...(process.env.CLIENT_URL ? [process.env.CLIENT_URL] : []),
+  ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',').map((u) => u.trim()) : []),
 ];
 
-// Also allow any Vercel preview deployment for this project
-// e.g. https://wanzxplays-client-abc123-wanzxplays.vercel.app
+// Patterns for preview deployments, local network devices, and secure tunnels
 const allowedOriginPatterns = [
-  /^https:\/\/wanzxplays(-[a-z0-9-]+)?\.vercel\.app$/,
+  // Allow all Vercel deployments (production, preview, staging)
+  /^https:\/\/[a-zA-Z0-9-_.]+\.vercel\.app$/,
+  // Allow all local network IPs (phone/tablet on Wi-Fi: 192.168.x.x, 10.x.x.x, 172.16-31.x.x) on any port
+  /^https?:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/,
+  // Allow loopback / localhost on any port
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/,
+  // Allow popular secure tunnels for online cross-device communications (Cloudflare, Localtunnel, Ngrok)
+  /^https:\/\/[a-zA-Z0-9-]+\.(trycloudflare\.com|loca\.lt|ngrok-free\.app|ngrok\.io|ngrok\.app)(:\d+)?$/,
+  // Allow popular PaaS domains
+  /^https:\/\/[a-zA-Z0-9-_.]+\.(railway\.app|up\.railway\.app|onrender\.com)$/,
 ];
 
 const isOriginAllowed = (origin: string): boolean => {
+  // In development mode, accept requests from any origin to ease cross-device testing
+  if (process.env.NODE_ENV !== 'production') {
+    return true;
+  }
   if (allowedOriginsList.includes(origin)) return true;
   return allowedOriginPatterns.some((pattern) => pattern.test(origin));
 };
@@ -116,6 +130,27 @@ if (fs.existsSync(clientDistPath)) {
   });
 }
 
-server.listen(PORT, () => {
-  console.log(`🚀 PulseCord server running on port ${PORT}`);
-});
+// Export Express app and server for serverless / custom runners
+export default app;
+export { app, server };
+
+// Only listen when running as a persistent Node server (Render, Railway, Local)
+// Never call server.listen() in serverless environments (e.g. Vercel Serverless Functions)
+if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  server.listen(Number(PORT), '0.0.0.0', () => {
+    console.log(`\n==================================================`);
+    console.log(`⚡ PulseCord server is running!`);
+    console.log(`👉 Local:   http://localhost:${PORT}`);
+
+    // List all local IPv4 addresses (for testing across phones, tablets, laptops on same Wi-Fi)
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      for (const net of interfaces[name] || []) {
+        if (net.family === 'IPv4' && !net.internal) {
+          console.log(`👉 Network (Other Devices on Wi-Fi): http://${net.address}:${PORT}`);
+        }
+      }
+    }
+    console.log(`==================================================\n`);
+  });
+}

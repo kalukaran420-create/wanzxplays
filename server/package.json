@@ -7,7 +7,7 @@
     "dev": "node ../node_modules/tsx/dist/cli.mjs watch src/index.ts",
     "build": "npx tsc",
     "build:prod": "npx prisma generate && npx tsc",
-    "start": "npx prisma generate && node dist/index.js",
+    "start": "npx prisma db push && npx prisma generate && node dist/index.js",
     "deploy": "node ../node_modules/prisma/build/index.js db push && node dist/index.js",
     "prisma:generate": "node ../node_modules/prisma/build/index.js generate",
     "prisma:push": "node ../node_modules/prisma/build/index.js db push",

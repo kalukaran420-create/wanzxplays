@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
+import { useAuth } from '../../context/AuthContext';
 import { useServer } from '../../context/ServerContext';
 import { useSocket } from '../../context/SocketContext';
 import { UserFooter } from './UserFooter';
@@ -43,6 +44,7 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
     connectedVoiceChannel,
     setConnectedVoiceChannel,
   } = useServer();
+  const { user } = useAuth();
   const { socket } = useSocket();
   const [showServerMenu, setShowServerMenu] = useState(false);
   const [collapsedCategories, setCollapsedCategories] = useState<{ [key: string]: boolean }>({});
@@ -52,19 +54,30 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
   useEffect(() => {
     if (!socket) return;
 
-    // Fetch initial voice rooms summary
+    // Fetch latest voice rooms summary
     socket.emit('voice:get-room-summary');
 
     const handleRoomSummary = (summary: { [channelId: string]: VoiceParticipant[] }) => {
       setVoiceRoomsSummary(summary || {});
     };
 
+    const handleParticipants = (participants: VoiceParticipant[]) => {
+      if (connectedVoiceChannel?.id && Array.isArray(participants)) {
+        setVoiceRoomsSummary((prev) => ({
+          ...prev,
+          [connectedVoiceChannel.id]: participants,
+        }));
+      }
+    };
+
     socket.on('voice:room-summary', handleRoomSummary);
+    socket.on('voice:participants', handleParticipants);
 
     return () => {
       socket.off('voice:room-summary', handleRoomSummary);
+      socket.off('voice:participants', handleParticipants);
     };
-  }, [socket]);
+  }, [socket, connectedVoiceChannel?.id]);
 
   const MIN_WIDTH = 180;
   const MAX_WIDTH = 480;
@@ -145,32 +158,88 @@ export const ChannelSidebar: React.FC<ChannelSidebarProps> = ({
   const uncategorizedText = uncategorizedChannels.filter((c) => c.type === 'TEXT');
 
   const renderVoiceParticipantList = (channelId: string) => {
-    const participantsList = voiceRoomsSummary[channelId] || [];
+    let participantsList = voiceRoomsSummary[channelId] || [];
+
+    // If the authenticated user is currently connected to this voice channel,
+    // guarantee they appear in the channel's sidebar list immediately
+    const isSelfConnected = connectedVoiceChannel?.id === channelId;
+    if (isSelfConnected && user) {
+      const isAlreadyInList = participantsList.some(
+        (p) => (p.userId && p.userId === user.id) ||
+               (p.username && p.username === user.username) ||
+               (socket?.id && p.socketId === socket.id)
+      );
+      if (!isAlreadyInList) {
+        participantsList = [
+          ...participantsList,
+          {
+            socketId: socket?.id || 'self',
+            userId: user.id,
+            username: user.username,
+            displayName: user.displayName || user.username,
+            avatar: user.avatar,
+            isMuted: false,
+            isDeafened: false,
+            isSpeaking: false,
+            channelId,
+          } as VoiceParticipant,
+        ];
+      }
+    }
+
     if (participantsList.length === 0) return null;
 
     return (
       <div className="pl-6 pt-1 space-y-1">
-        {participantsList.map((p) => (
-          <div key={p.socketId} className="flex items-center space-x-2 py-0.5 px-1.5 rounded-lg hover:bg-white/5 transition-all">
-            <div className="relative flex-shrink-0">
-              <img
-                src={resolveMediaUrl(p.avatar) || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p.username)}`}
-                alt={p.username}
-                className={`w-4 h-4 rounded-full object-cover transition-all ${
-                  p.isSpeaking ? 'ring-2 ring-cyber-emerald shadow-glow-emerald scale-105' : 'ring-1 ring-white/10'
-                }`}
-              />
-              <div
-                className={`absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ${
-                  p.isMuted ? 'bg-cyber-rose' : 'bg-cyber-emerald'
-                }`}
-              />
+        {participantsList.map((p) => {
+          const isSelf = Boolean(
+            (user?.id && p.userId === user.id) ||
+            (user?.username && p.username === user.username) ||
+            (socket?.id && p.socketId === socket.id)
+          );
+
+          // Find server member to resolve avatar fallback
+          const serverMember = activeServer?.members?.find(
+            (m) => (p.userId && m.userId === p.userId) || (p.username && m.user?.username === p.username)
+          );
+
+          // For the authenticated user, always prioritize their current user.avatar from auth state
+          const rawAvatar = isSelf
+            ? (user?.avatar || serverMember?.user?.avatar || p.avatar)
+            : (p.avatar || serverMember?.user?.avatar);
+
+          const avatarUrl =
+            resolveMediaUrl(rawAvatar) ||
+            `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p.username)}`;
+
+          return (
+            <div
+              key={p.socketId || p.userId || p.username}
+              className="flex items-center space-x-2 py-0.5 px-1.5 rounded-lg hover:bg-white/5 transition-all"
+            >
+              <div className="relative flex-shrink-0">
+                <img
+                  src={avatarUrl}
+                  alt={p.username}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p.username)}`;
+                  }}
+                  className={`w-4 h-4 rounded-full object-cover transition-all ${
+                    p.isSpeaking ? 'ring-2 ring-cyber-emerald shadow-glow-emerald scale-105' : 'ring-1 ring-white/10'
+                  }`}
+                />
+                <div
+                  className={`absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ${
+                    p.isMuted ? 'bg-cyber-rose' : 'bg-cyber-emerald'
+                  }`}
+                />
+              </div>
+              <span className="text-[11px] font-semibold text-cyber-muted hover:text-white truncate max-w-[110px]">
+                {p.displayName || p.username}
+              </span>
             </div>
-            <span className="text-[11px] font-semibold text-cyber-muted hover:text-white truncate max-w-[110px]">
-              {p.displayName || p.username}
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };

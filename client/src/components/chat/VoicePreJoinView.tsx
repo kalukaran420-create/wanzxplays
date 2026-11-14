@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Channel } from '../../types';
+import { useAuth } from '../../context/AuthContext';
 import { useServer } from '../../context/ServerContext';
 import { useSocket } from '../../context/SocketContext';
 import { VoiceParticipant } from '../../hooks/useWebRTC';
@@ -11,7 +12,8 @@ interface VoicePreJoinViewProps {
 }
 
 export const VoicePreJoinView: React.FC<VoicePreJoinViewProps> = ({ channel }) => {
-  const { setConnectedVoiceChannel } = useServer();
+  const { user } = useAuth();
+  const { setConnectedVoiceChannel, activeServer } = useServer();
   const { socket } = useSocket();
   const [participants, setParticipants] = useState<VoiceParticipant[]>([]);
 
@@ -84,24 +86,42 @@ export const VoicePreJoinView: React.FC<VoicePreJoinViewProps> = ({ channel }) =
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2 pt-1 max-h-40 overflow-y-auto custom-scrollbar">
-                {participants.map((p) => (
-                  <div
-                    key={p.socketId}
-                    className="flex items-center space-x-2.5 p-2 rounded-xl bg-cyber-chat/80 border border-cyber-border/40"
-                  >
-                    <img
-                      src={
-                        resolveMediaUrl(p.avatar) ||
-                        `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p.username)}`
-                      }
-                      alt={p.username}
-                      className="w-7 h-7 rounded-full object-cover bg-cyber-panel"
-                    />
-                    <span className="text-xs font-bold text-white truncate">
-                      {p.displayName || p.username}
-                    </span>
-                  </div>
-                ))}
+                {participants.map((p) => {
+                  const isSelf = Boolean(
+                    (user?.id && p.userId === user.id) ||
+                    (user?.username && p.username === user.username) ||
+                    (socket?.id && p.socketId === socket.id)
+                  );
+                  const serverMember = activeServer?.members?.find(
+                    (m) => (p.userId && m.userId === p.userId) || (p.username && m.user?.username === p.username)
+                  );
+                  const rawAvatar = isSelf
+                    ? (user?.avatar || serverMember?.user?.avatar || p.avatar)
+                    : (p.avatar || serverMember?.user?.avatar);
+                  const avatarUrl =
+                    resolveMediaUrl(rawAvatar) ||
+                    `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p.username)}`;
+
+                  return (
+                    <div
+                      key={p.socketId}
+                      className="flex items-center space-x-2.5 p-2 rounded-xl bg-cyber-chat/80 border border-cyber-border/40"
+                    >
+                      <img
+                        src={avatarUrl}
+                        alt={p.username}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p.username)}`;
+                        }}
+                        className="w-7 h-7 rounded-full object-cover bg-cyber-panel"
+                      />
+                      <span className="text-xs font-bold text-white truncate">
+                        {p.displayName || p.username}
+                        {isSelf && <span className="ml-1 text-[9px] text-cyber-cyan opacity-80">(you)</span>}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
